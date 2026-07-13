@@ -229,13 +229,16 @@ export default {
 
     // ⭐ NEW IDLE TIMER METHODS
     startIdleTimer() {
+      console.log('DEBUG: idle timer started')
       this.clearIdleTimer()
       this.idleTimer = setTimeout(() => {
+        console.log('DEBUG: idle = true')
         this.idle = true
       }, 30000) // 30 seconds
     },
 
     clearIdleTimer() {
+      console.log('DEBUG: idle timer cleared')
       if (this.idleTimer) {
         clearTimeout(this.idleTimer)
         this.idleTimer = null
