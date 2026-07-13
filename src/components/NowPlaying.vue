@@ -258,30 +258,33 @@ export default {
       this.handleNowPlaying()
     },
 
-    playerData(newVal, oldVal) {
-      this.$emit('spotifyTrackUpdated', newVal)
+    playerData: {
+      handler(newVal, oldVal) {
+        this.$emit('spotifyTrackUpdated', newVal)
 
-      this.$nextTick(() => {
-        this.getAlbumColours()
-      })
+        this.$nextTick(() => {
+          this.getAlbumColours()
+        })
 
-      // First run: oldVal is undefined
-      if (!oldVal) {
-        if (!newVal.playing) {
-          console.log('DEBUG: first run, starting idle timer')
-          this.startIdleTimer()
+        // First run: oldVal is undefined
+        if (!oldVal) {
+          if (!newVal.playing) {
+            console.log('DEBUG: first run, starting idle timer')
+            this.startIdleTimer()
+          }
+          return
         }
-        return
-      }
 
-      // Only react when playing state CHANGES
-      if (newVal.playing !== oldVal.playing) {
-        if (newVal.playing) {
-          this.clearIdleTimer()
-        } else {
-          this.startIdleTimer()
+        // Only react when playing state CHANGES
+        if (newVal.playing !== oldVal.playing) {
+          if (newVal.playing) {
+            this.clearIdleTimer()
+          } else {
+            this.startIdleTimer()
+          }
         }
-      }
+      },
+      deep: true
     }
   }
 }
