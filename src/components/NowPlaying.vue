@@ -189,14 +189,21 @@ export default {
         console.log(
           'DEBUG: handleNowPlaying -> not playing, starting idle timer'
         )
+
         this.playerData = this.getEmptyPlayer()
-        this.startIdleTimer()
+
+        // ⭐ ONLY start the timer — DO NOT clear it again
+        if (!this.idle) {
+          this.startIdleTimer()
+        }
+
         this.$emit('spotifyTrackUpdated', this.playerData)
         return
       }
 
       // something is playing
       console.log('DEBUG: handleNowPlaying -> playing, clearing idle timer')
+
       this.clearIdleTimer()
 
       // avoid duplicate updates
