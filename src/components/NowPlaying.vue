@@ -256,20 +256,21 @@ export default {
     },
 
     playerData(newVal, oldVal) {
-  this.$emit('spotifyTrackUpdated', newVal)
+      this.$emit('spotifyTrackUpdated', newVal)
 
-  this.$nextTick(() => {
-    this.getAlbumColours()
-  })
+      this.$nextTick(() => {
+        this.getAlbumColours()
+      })
 
-  // ⭐ Only react when the playing state CHANGES
-  if (newVal.playing !== oldVal.playing) {
-    if (newVal.playing) {
-      this.clearIdleTimer()
-    } else {
-      this.startIdleTimer()
+      // ⭐ Only react when the playing state CHANGES
+      if (newVal.playing !== oldVal.playing) {
+        if (newVal.playing) {
+          this.clearIdleTimer()
+        } else {
+          this.startIdleTimer()
+        }
+      }
     }
-  }
   }
 }
 </script>
