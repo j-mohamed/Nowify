@@ -48,11 +48,17 @@ export default {
     return {
       pollPlaying: '',
       playerResponse: {},
-      playerData: this.getEmptyPlayer(),
+      playerData: {
+        playing: false,
+        trackAlbum: {},
+        trackArtists: [],
+        trackId: '',
+        trackTitle: ''
+      },
       colourPalette: '',
       swatches: [],
 
-      // NEW idle timer fields
+      // idle timer fields
       idle: false,
       idleTimer: null
     }
@@ -91,28 +97,23 @@ export default {
           throw new Error(`An error has occured: ${response.status}`)
         }
 
+        // 204 = nothing playing
         if (response.status === 204) {
           data = this.getEmptyPlayer()
-          this.playerData = data
-
-          this.$nextTick(() => {
-            this.$emit('spotifyTrackUpdated', data)
-          })
-
+          this.playerResponse = data
+          this.handleNowPlaying()
           return
         }
 
         data = await response.json()
         this.playerResponse = data
+        this.handleNowPlaying()
       } catch (error) {
         this.handleExpiredToken()
 
         data = this.getEmptyPlayer()
-        this.playerData = data
-
-        this.$nextTick(() => {
-          this.$emit('spotifyTrackUpdated', data)
-        })
+        this.playerResponse = data
+        this.handleNowPlaying()
       }
     },
 
@@ -171,6 +172,7 @@ export default {
     },
 
     handleNowPlaying() {
+      // expired / bad token
       if (
         this.playerResponse.error?.status === 401 ||
         this.playerResponse.error?.status === 400
@@ -179,11 +181,25 @@ export default {
         return
       }
 
-      if (this.playerResponse.is_playing === false) {
+      // nothing playing (204 or empty object)
+      if (
+        this.playerResponse.is_playing === false ||
+        !this.playerResponse.item
+      ) {
+        console.log(
+          'DEBUG: handleNowPlaying -> not playing, starting idle timer'
+        )
         this.playerData = this.getEmptyPlayer()
+        this.startIdleTimer()
+        this.$emit('spotifyTrackUpdated', this.playerData)
         return
       }
 
+      // something is playing
+      console.log('DEBUG: handleNowPlaying -> playing, clearing idle timer')
+      this.clearIdleTimer()
+
+      // avoid duplicate updates
       if (this.playerResponse.item?.id === this.playerData.trackId) {
         return
       }
@@ -200,6 +216,12 @@ export default {
           image: this.playerResponse.item.album.images[0].url
         }
       }
+
+      this.$emit('spotifyTrackUpdated', this.playerData)
+
+      this.$nextTick(() => {
+        this.getAlbumColours()
+      })
     },
 
     handleAlbumPalette(palette) {
@@ -227,7 +249,7 @@ export default {
       this.$emit('requestRefreshToken')
     },
 
-    // ⭐ NEW IDLE TIMER METHODS
+    // IDLE TIMER METHODS
     startIdleTimer() {
       console.log('DEBUG: idle timer started')
       this.clearIdleTimer()
@@ -244,47 +266,6 @@ export default {
         this.idleTimer = null
       }
       this.idle = false
-    }
-  },
-
-  watch: {
-    auth(oldVal, newVal) {
-      if (newVal.status === false) {
-        clearInterval(this.pollPlaying)
-      }
-    },
-
-    playerResponse() {
-      this.handleNowPlaying()
-    },
-
-    playerData: {
-      handler(newVal, oldVal) {
-        this.$emit('spotifyTrackUpdated', newVal)
-
-        this.$nextTick(() => {
-          this.getAlbumColours()
-        })
-
-        // First run: oldVal is undefined
-        if (!oldVal) {
-          if (!newVal.playing) {
-            console.log('DEBUG: first run, starting idle timer')
-            this.startIdleTimer()
-          }
-          return
-        }
-
-        // Only react when playing state CHANGES
-        if (newVal.playing !== oldVal.playing) {
-          if (newVal.playing) {
-            this.clearIdleTimer()
-          } else {
-            this.startIdleTimer()
-          }
-        }
-      },
-      deep: true
     }
   }
 }
