@@ -255,20 +255,21 @@ export default {
       this.handleNowPlaying()
     },
 
-    playerData() {
-      this.$emit('spotifyTrackUpdated', this.playerData)
+    playerData(newVal, oldVal) {
+  this.$emit('spotifyTrackUpdated', newVal)
 
-      this.$nextTick(() => {
-        this.getAlbumColours()
-      })
+  this.$nextTick(() => {
+    this.getAlbumColours()
+  })
 
-      // ⭐ NEW idle timer logic
-      if (this.playerData.playing) {
-        this.clearIdleTimer()
-      } else {
-        this.startIdleTimer()
-      }
+  // ⭐ Only react when the playing state CHANGES
+  if (newVal.playing !== oldVal.playing) {
+    if (newVal.playing) {
+      this.clearIdleTimer()
+    } else {
+      this.startIdleTimer()
     }
+  }
   }
 }
 </script>
