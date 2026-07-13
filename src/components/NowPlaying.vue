@@ -117,8 +117,14 @@ export default {
     },
 
     getNowPlayingClass() {
+      console.log('DEBUG: playerData.playing =', this.playerData.playing)
+
       const playerClass = this.playerData.playing ? 'active' : 'idle'
-      return `now-playing--${playerClass}`
+      const className = `now-playing--${playerClass}`
+
+      console.log('DEBUG: returning class =', className)
+
+      return className
     },
 
     getAlbumColours() {
