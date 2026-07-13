@@ -1,20 +1,23 @@
 <template>
   <div id="app">
     <div
-      v-if="player.playing"
+      v-if="playerData.playing"
       class="now-playing"
       :class="getNowPlayingClass()"
     >
       <div class="now-playing__cover">
         <img
-          :src="player.trackAlbum.image"
-          :alt="player.trackTitle"
+          :src="playerData.trackAlbum.image"
+          :alt="playerData.trackTitle"
           class="now-playing__image"
         />
       </div>
+
       <div class="now-playing__details">
-        <h1 class="now-playing__track" v-text="player.trackTitle"></h1>
-        <h2 class="now-playing__artists" v-text="getTrackArtists"></h2>
+        <h1 class="now-playing__track">{{ playerData.trackTitle }}</h1>
+        <h2 class="now-playing__artists">
+          {{ playerData.trackArtists.join(', ') }}
+        </h2>
       </div>
     </div>
 
@@ -114,7 +117,7 @@ export default {
     },
 
     getNowPlayingClass() {
-      const playerClass = this.player.playing ? 'active' : 'idle'
+      const playerClass = this.playerData.playing ? 'active' : 'idle'
       return `now-playing--${playerClass}`
     },
 
