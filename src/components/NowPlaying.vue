@@ -24,13 +24,17 @@
 
     <!-- SCREENSAVER VIEW -->
     <div v-else-if="idle" class="screensaver">
-      <div class="screensaver__content">
-        <h1 class="screensaver__title">🎵 No Music Playing</h1>
-        <p class="screensaver__subtitle">Relax mode activated</p>
+      <div class="screensaver__bg" :style="circadianGradient"></div>
+
+      <div class="screensaver__clock-container" :style="clockPosition">
+        <div class="screensaver__clock screensaver__fade">
+          <div class="screensaver__time">{{ time }}</div>
+          <div class="screensaver__date">{{ date }}</div>
+        </div>
       </div>
     </div>
 
-    <!-- IDLE VIEW (NO MUSIC BUT NOT YET SCREENSAVER) -->
+    <!-- IDLE VIEW -->
     <div v-else class="now-playing now-playing--idle">
       <h1 class="now-playing__idle-heading">No music is playing 😔</h1>
     </div>
@@ -67,7 +71,17 @@ export default {
 
       // Idle timer state
       idle: false,
-      idleTimer: null
+      idleTimer: null,
+
+      // Clock + date
+      time: '',
+      date: '',
+      clockInterval: null,
+
+      // Screensaver movement
+      clockX: 0,
+      clockY: 0,
+      moveInterval: null
     }
   },
 
@@ -78,6 +92,52 @@ export default {
   beforeDestroy() {
     clearInterval(this.pollPlaying)
     this.clearIdleTimer()
+    clearInterval(this.clockInterval)
+    clearInterval(this.moveInterval)
+  },
+
+  computed: {
+    /* -------------------------------------------------------
+     * Circadian gradient based on current time
+     * ----------------------------------------------------- */
+    circadianGradient() {
+      const hour = new Date().getHours()
+
+      if (hour < 6) {
+        return {
+          background: 'linear-gradient(120deg, #0a0a1a, #1a1a2a, #0a0a1a)',
+          animation: 'gradientMove 12s ease infinite'
+        }
+      }
+
+      if (hour < 12) {
+        return {
+          background: 'linear-gradient(120deg, #ffcf91, #ffd7a8, #ffcf91)',
+          animation: 'gradientMove 12s ease infinite'
+        }
+      }
+
+      if (hour < 18) {
+        return {
+          background: 'linear-gradient(120deg, #87cefa, #a0d8ff, #87cefa)',
+          animation: 'gradientMove 12s ease infinite'
+        }
+      }
+
+      return {
+        background: 'linear-gradient(120deg, #1a1a3a, #2a2a4a, #1a1a3a)',
+        animation: 'gradientMove 12s ease infinite'
+      }
+    },
+
+    /* -------------------------------------------------------
+     * Clock drifting position
+     * ----------------------------------------------------- */
+    clockPosition() {
+      return {
+        transform: `translate(${this.clockX}px, ${this.clockY}px)`
+      }
+    }
   },
 
   methods: {
@@ -99,7 +159,6 @@ export default {
 
         if (!response.ok) throw new Error(response.status)
 
-        // 204 = nothing playing
         if (response.status === 204) {
           data = this.getEmptyPlayer()
           this.playerResponse = data
@@ -125,17 +184,11 @@ export default {
       }, 2500)
     },
 
-    /* -------------------------------------------------------
-     * CLASS LOGIC
-     * ----------------------------------------------------- */
     getNowPlayingClass() {
       const playerClass = this.playerData.playing ? 'active' : 'idle'
       return `now-playing--${playerClass}`
     },
 
-    /* -------------------------------------------------------
-     * EMPTY PLAYER TEMPLATE
-     * ----------------------------------------------------- */
     getEmptyPlayer() {
       return {
         playing: false,
@@ -150,16 +203,6 @@ export default {
      * MAIN LOGIC — PLAYING / NOT PLAYING / SCREENSAVER
      * ----------------------------------------------------- */
     handleNowPlaying() {
-      // expired token
-      if (
-        this.playerResponse.error?.status === 401 ||
-        this.playerResponse.error?.status === 400
-      ) {
-        this.handleExpiredToken()
-        return
-      }
-
-      // detect ANY missing track info (ghost-playing fix)
       const noTrack =
         !this.playerResponse.item ||
         !this.playerResponse.item.id ||
@@ -168,15 +211,9 @@ export default {
         !this.playerResponse.item.album?.images ||
         this.playerResponse.item.album.images.length === 0
 
-      /* -------------------------------------------------------
-       * NOTHING PLAYING
-       * ----------------------------------------------------- */
       if (!this.playerResponse.is_playing || noTrack) {
-        console.log('DEBUG: not playing → start idle timer')
-
         this.playerData = this.getEmptyPlayer()
 
-        // Only start timer if not already running
         if (!this.idleTimer) {
           this.startIdleTimer()
         }
@@ -184,14 +221,8 @@ export default {
         return
       }
 
-      /* -------------------------------------------------------
-       * SOMETHING IS PLAYING
-       * ----------------------------------------------------- */
-      console.log('DEBUG: playing → clear idle timer')
-
       this.clearIdleTimer()
 
-      // avoid duplicate updates
       if (this.playerResponse.item?.id === this.playerData.trackId) {
         return
       }
@@ -272,48 +303,137 @@ export default {
      * IDLE TIMER
      * ----------------------------------------------------- */
     startIdleTimer() {
-      console.log('DEBUG: idle timer started')
-
       this.clearIdleTimer()
 
       this.idleTimer = setTimeout(() => {
-        console.log('DEBUG: idle = true')
         this.idle = true
+        this.startClock()
+        this.startClockMovement()
       }, 30000)
     },
 
     clearIdleTimer() {
-      console.log('DEBUG: idle timer cleared')
-
       if (this.idleTimer) {
         clearTimeout(this.idleTimer)
         this.idleTimer = null
       }
 
       this.idle = false
+
+      clearInterval(this.clockInterval)
+      clearInterval(this.moveInterval)
+    },
+
+    /* -------------------------------------------------------
+     * CLOCK LOGIC
+     * ----------------------------------------------------- */
+    startClock() {
+      this.updateClock()
+
+      this.clockInterval = setInterval(() => {
+        this.updateClock()
+      }, 1000)
+    },
+
+    updateClock() {
+      const now = new Date()
+
+      this.time = now.toLocaleTimeString([], {
+        hour: '2-digit',
+        minute: '2-digit'
+      })
+
+      this.date = now.toLocaleDateString([], {
+        weekday: 'long',
+        month: 'long',
+        day: 'numeric'
+      })
+    },
+
+    /* -------------------------------------------------------
+     * CLOCK MOVEMENT (burn-in protection)
+     * ----------------------------------------------------- */
+    startClockMovement() {
+      this.moveInterval = setInterval(() => {
+        this.clockX = Math.random() * 200 - 100
+        this.clockY = Math.random() * 200 - 100
+      }, 8000)
     }
   }
 }
 </script>
 
 <style>
-/* Add your screensaver styling here */
+/* Screensaver container */
 .screensaver {
-  display: flex;
-  justify-content: center;
-  align-items: center;
+  position: relative;
   height: 100vh;
-  background: black;
-  color: white;
+  width: 100vw;
+  overflow: hidden;
+}
+
+/* Circadian gradient animation */
+@keyframes gradientMove {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+.screensaver__bg {
+  position: absolute;
+  inset: 0;
+  background-size: 300% 300%;
+  animation: gradientMove 12s ease infinite;
+  z-index: 1;
+}
+
+/* Clock movement */
+.screensaver__clock-container {
+  position: absolute;
+  top: 40%;
+  left: 40%;
+  transition: transform 3s ease;
+  z-index: 2;
+}
+
+/* Fade animation */
+.screensaver__fade {
+  animation: fadePulse 6s ease-in-out infinite;
+}
+
+@keyframes fadePulse {
+  0% {
+    opacity: 0.4;
+  }
+  50% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0.4;
+  }
+}
+
+/* Clock styling */
+.screensaver__clock {
   text-align: center;
+  color: white;
+  font-family: 'Segoe UI', sans-serif;
 }
 
-.screensaver__title {
-  font-size: 3rem;
+.screensaver__time {
+  font-size: 5rem;
+  font-weight: 300;
 }
 
-.screensaver__subtitle {
+.screensaver__date {
   font-size: 1.5rem;
-  opacity: 0.7;
+  opacity: 0.8;
+  margin-top: 10px;
 }
 </style>
