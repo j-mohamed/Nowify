@@ -54,6 +54,16 @@ export default {
     if (this.auth.refreshToken) {
       this.requestAccessTokens('refresh_token')
     }
+
+    /**
+     * Auto‑trigger Spotify login when no tokens exist.
+     * This makes the kiosk log in automatically.
+     */
+    if (!this.auth.refreshToken && !this.auth.accessToken) {
+      setTimeout(() => {
+        this.initAuthorise()
+      }, 1500)
+    }
   },
 
   methods: {
@@ -90,8 +100,8 @@ export default {
       }
 
       if (grantType === 'authorization_code') {
-        ;(fetchData.code = this.auth.authCode),
-          (fetchData.redirect_uri = window.location.origin)
+        ;((fetchData.code = this.auth.authCode),
+          (fetchData.redirect_uri = window.location.origin))
       }
 
       if (grantType === 'refresh_token') {
@@ -185,18 +195,10 @@ export default {
       searchParams.append(
         'state',
         [
-          Math.random()
-            .toString(33)
-            .substring(2),
-          Math.random()
-            .toString(34)
-            .substring(3),
-          Math.random()
-            .toString(35)
-            .substring(4),
-          Math.random()
-            .toString(36)
-            .substring(5)
+          Math.random().toString(33).substring(2),
+          Math.random().toString(34).substring(3),
+          Math.random().toString(35).substring(4),
+          Math.random().toString(36).substring(5)
         ].join('-')
       )
       searchParams.append('scope', 'user-read-currently-playing')
@@ -209,14 +211,14 @@ export default {
     /**
      * Watch authorisation code.
      */
-    'auth.authCode': function() {
+    'auth.authCode': function () {
       this.requestAccessTokens()
     },
 
     /**
      * Watch authorisation status.
      */
-    'auth.status': function() {
+    'auth.status': function () {
       if (this.auth.refreshToken) {
         this.requestAccessTokens('refresh_token')
       }
