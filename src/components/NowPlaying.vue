@@ -265,7 +265,15 @@ export default {
         this.getAlbumColours()
       })
 
-      // ⭐ Only react when the playing state CHANGES
+      // If oldVal is undefined (first run)
+      if (!oldVal) {
+        if (!newVal.playing) {
+          this.startIdleTimer()
+        }
+        return
+      }
+
+      // Only react when playing state CHANGES
       if (newVal.playing !== oldVal.playing) {
         if (newVal.playing) {
           this.clearIdleTimer()
