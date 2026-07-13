@@ -27,7 +27,7 @@
       <div class="screensaver__bg" :style="circadianGradient"></div>
 
       <div class="screensaver__clock-container" :style="clockPosition">
-        <div class="screensaver__clock screensaver__fade">
+        <div class="screensaver__clock">
           <div class="screensaver__time">{{ time }}</div>
           <div class="screensaver__date">{{ date }}</div>
         </div>
@@ -355,9 +355,9 @@ export default {
      * ----------------------------------------------------- */
     startClockMovement() {
       this.moveInterval = setInterval(() => {
-        this.clockX = Math.random() * 200 - 100
-        this.clockY = Math.random() * 200 - 100
-      }, 8000)
+        this.clockX = Math.random() * 300 - 150
+        this.clockY = Math.random() * 300 - 150
+      }, 300000) // 300,000 ms = 5 minutes
     }
   }
 }
@@ -398,25 +398,8 @@ export default {
   position: absolute;
   top: 40%;
   left: 40%;
-  transition: transform 3s ease;
+  transition: transform 4s ease;
   z-index: 2;
-}
-
-/* Fade animation */
-.screensaver__fade {
-  animation: fadePulse 6s ease-in-out infinite;
-}
-
-@keyframes fadePulse {
-  0% {
-    opacity: 0.4;
-  }
-  50% {
-    opacity: 1;
-  }
-  100% {
-    opacity: 0.4;
-  }
 }
 
 /* Clock styling */
