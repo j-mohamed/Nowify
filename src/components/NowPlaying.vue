@@ -1,5 +1,6 @@
 <template>
   <div id="app">
+    <!-- PLAYING VIEW -->
     <div
       v-if="playerData.playing"
       class="now-playing"
@@ -21,9 +22,16 @@
       </div>
     </div>
 
-    <Screensaver v-else-if="idle" />
+    <!-- SCREENSAVER VIEW -->
+    <div v-else-if="idle" class="screensaver">
+      <div class="screensaver__content">
+        <h1 class="screensaver__title">🎵 No Music Playing</h1>
+        <p class="screensaver__subtitle">Relax mode activated</p>
+      </div>
+    </div>
 
-    <div v-else class="now-playing" :class="getNowPlayingClass()">
+    <!-- IDLE VIEW (NO MUSIC BUT NOT YET SCREENSAVER) -->
+    <div v-else class="now-playing now-playing--idle">
       <h1 class="now-playing__idle-heading">No music is playing 😔</h1>
     </div>
   </div>
@@ -32,11 +40,9 @@
 <script>
 import props from '@/utils/props.js'
 import * as Vibrant from 'node-vibrant'
-import Screensaver from './Screensaver.vue'
 
 export default {
   name: 'NowPlaying',
-  components: { Screensaver },
 
   props: {
     auth: props.auth,
@@ -46,7 +52,7 @@ export default {
 
   data() {
     return {
-      pollPlaying: '',
+      pollPlaying: null,
       playerResponse: {},
       playerData: {
         playing: false,
@@ -55,18 +61,13 @@ export default {
         trackId: '',
         trackTitle: ''
       },
+
       colourPalette: '',
       swatches: [],
 
-      // idle timer fields
+      // Idle timer state
       idle: false,
       idleTimer: null
-    }
-  },
-
-  computed: {
-    getTrackArtists() {
-      return this.player.trackArtists.join(', ')
     }
   },
 
@@ -80,6 +81,9 @@ export default {
   },
 
   methods: {
+    /* -------------------------------------------------------
+     * POLLING SPOTIFY
+     * ----------------------------------------------------- */
     async getNowPlaying() {
       let data = {}
 
@@ -93,9 +97,7 @@ export default {
           }
         )
 
-        if (!response.ok) {
-          throw new Error(`An error has occured: ${response.status}`)
-        }
+        if (!response.ok) throw new Error(response.status)
 
         // 204 = nothing playing
         if (response.status === 204) {
@@ -110,38 +112,30 @@ export default {
         this.handleNowPlaying()
       } catch (error) {
         this.handleExpiredToken()
-
         data = this.getEmptyPlayer()
         this.playerResponse = data
         this.handleNowPlaying()
       }
     },
 
+    setDataInterval() {
+      clearInterval(this.pollPlaying)
+      this.pollPlaying = setInterval(() => {
+        this.getNowPlaying()
+      }, 2500)
+    },
+
+    /* -------------------------------------------------------
+     * CLASS LOGIC
+     * ----------------------------------------------------- */
     getNowPlayingClass() {
-      console.log('DEBUG: playerData.playing =', this.playerData.playing)
-
       const playerClass = this.playerData.playing ? 'active' : 'idle'
-      const className = `now-playing--${playerClass}`
-
-      console.log('DEBUG: returning class =', className)
-
-      return className
+      return `now-playing--${playerClass}`
     },
 
-    getAlbumColours() {
-      if (!this.player.trackAlbum?.image) {
-        return
-      }
-
-      Vibrant.from(this.player.trackAlbum.image)
-        .quality(1)
-        .clearFilters()
-        .getPalette()
-        .then((palette) => {
-          this.handleAlbumPalette(palette)
-        })
-    },
-
+    /* -------------------------------------------------------
+     * EMPTY PLAYER TEMPLATE
+     * ----------------------------------------------------- */
     getEmptyPlayer() {
       return {
         playing: false,
@@ -152,11 +146,106 @@ export default {
       }
     },
 
-    setDataInterval() {
-      clearInterval(this.pollPlaying)
-      this.pollPlaying = setInterval(() => {
-        this.getNowPlaying()
-      }, 2500)
+    /* -------------------------------------------------------
+     * MAIN LOGIC — PLAYING / NOT PLAYING / SCREENSAVER
+     * ----------------------------------------------------- */
+    handleNowPlaying() {
+      // expired token
+      if (
+        this.playerResponse.error?.status === 401 ||
+        this.playerResponse.error?.status === 400
+      ) {
+        this.handleExpiredToken()
+        return
+      }
+
+      // detect ANY missing track info (ghost-playing fix)
+      const noTrack =
+        !this.playerResponse.item ||
+        !this.playerResponse.item.id ||
+        !this.playerResponse.item.album ||
+        !this.playerResponse.item.artists ||
+        !this.playerResponse.item.album?.images ||
+        this.playerResponse.item.album.images.length === 0
+
+      /* -------------------------------------------------------
+       * NOTHING PLAYING
+       * ----------------------------------------------------- */
+      if (!this.playerResponse.is_playing || noTrack) {
+        console.log('DEBUG: not playing → start idle timer')
+
+        this.playerData = this.getEmptyPlayer()
+
+        // Only start timer if not already running
+        if (!this.idleTimer) {
+          this.startIdleTimer()
+        }
+
+        return
+      }
+
+      /* -------------------------------------------------------
+       * SOMETHING IS PLAYING
+       * ----------------------------------------------------- */
+      console.log('DEBUG: playing → clear idle timer')
+
+      this.clearIdleTimer()
+
+      // avoid duplicate updates
+      if (this.playerResponse.item?.id === this.playerData.trackId) {
+        return
+      }
+
+      this.playerData = {
+        playing: true,
+        trackArtists: this.playerResponse.item.artists.map(
+          (artist) => artist.name
+        ),
+        trackTitle: this.playerResponse.item.name,
+        trackId: this.playerResponse.item.id,
+        trackAlbum: {
+          title: this.playerResponse.item.album.name,
+          image: this.playerResponse.item.album.images[0].url
+        }
+      }
+
+      this.$nextTick(() => {
+        this.getAlbumColours()
+      })
+    },
+
+    /* -------------------------------------------------------
+     * COLOUR EXTRACTION
+     * ----------------------------------------------------- */
+    getAlbumColours() {
+      if (!this.playerData.trackAlbum?.image) return
+
+      Vibrant.from(this.playerData.trackAlbum.image)
+        .quality(1)
+        .clearFilters()
+        .getPalette()
+        .then((palette) => {
+          this.handleAlbumPalette(palette)
+        })
+    },
+
+    handleAlbumPalette(palette) {
+      let albumColours = Object.keys(palette)
+        .filter((item) => item)
+        .map((colour) => {
+          return {
+            text: palette[colour].getTitleTextColor(),
+            background: palette[colour].getHex()
+          }
+        })
+
+      this.swatches = albumColours
+      this.colourPalette =
+        albumColours[Math.floor(Math.random() * albumColours.length)]
+
+      this.$nextTick(() => {
+        this.setAppColours()
+      })
     },
 
     setAppColours() {
@@ -171,109 +260,60 @@ export default {
       )
     },
 
-    handleNowPlaying() {
-      // expired / bad token
-      if (
-        this.playerResponse.error?.status === 401 ||
-        this.playerResponse.error?.status === 400
-      ) {
-        this.handleExpiredToken()
-        return
-      }
-
-      // nothing playing (204 or empty object)
-      if (
-        this.playerResponse.is_playing === false ||
-        !this.playerResponse.item
-      ) {
-        console.log(
-          'DEBUG: handleNowPlaying -> not playing, starting idle timer'
-        )
-
-        this.playerData = this.getEmptyPlayer()
-
-        // ⭐ ONLY start the timer — DO NOT clear it again
-        if (!this.idle) {
-          this.startIdleTimer()
-        }
-
-        this.$emit('spotifyTrackUpdated', this.playerData)
-        return
-      }
-
-      // something is playing
-      console.log('DEBUG: handleNowPlaying -> playing, clearing idle timer')
-
-      this.clearIdleTimer()
-
-      // avoid duplicate updates
-      if (this.playerResponse.item?.id === this.playerData.trackId) {
-        return
-      }
-
-      this.playerData = {
-        playing: this.playerResponse.is_playing,
-        trackArtists: this.playerResponse.item.artists.map(
-          (artist) => artist.name
-        ),
-        trackTitle: this.playerResponse.item.name,
-        trackId: this.playerResponse.item.id,
-        trackAlbum: {
-          title: this.playerResponse.item.album.name,
-          image: this.playerResponse.item.album.images[0].url
-        }
-      }
-
-      this.$emit('spotifyTrackUpdated', this.playerData)
-
-      this.$nextTick(() => {
-        this.getAlbumColours()
-      })
-    },
-
-    handleAlbumPalette(palette) {
-      let albumColours = Object.keys(palette)
-        .filter((item) => item)
-        .map((colour) => {
-          return {
-            text: palette[colour].getTitleTextColor(),
-            background: palette[colour].getHex()
-          }
-        })
-
-      this.swatches = albumColours
-
-      this.colourPalette =
-        albumColours[Math.floor(Math.random() * albumColours.length)]
-
-      this.$nextTick(() => {
-        this.setAppColours()
-      })
-    },
-
+    /* -------------------------------------------------------
+     * TOKEN HANDLING
+     * ----------------------------------------------------- */
     handleExpiredToken() {
       clearInterval(this.pollPlaying)
       this.$emit('requestRefreshToken')
     },
 
-    // IDLE TIMER METHODS
+    /* -------------------------------------------------------
+     * IDLE TIMER
+     * ----------------------------------------------------- */
     startIdleTimer() {
       console.log('DEBUG: idle timer started')
+
       this.clearIdleTimer()
+
       this.idleTimer = setTimeout(() => {
         console.log('DEBUG: idle = true')
         this.idle = true
-      }, 30000) // 30 seconds
+      }, 30000)
     },
 
     clearIdleTimer() {
       console.log('DEBUG: idle timer cleared')
+
       if (this.idleTimer) {
         clearTimeout(this.idleTimer)
         this.idleTimer = null
       }
+
       this.idle = false
     }
   }
 }
 </script>
+
+<style>
+/* Add your screensaver styling here */
+.screensaver {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100vh;
+  background: black;
+  color: white;
+  text-align: center;
+}
+
+.screensaver__title {
+  font-size: 3rem;
+}
+
+.screensaver__subtitle {
+  font-size: 1.5rem;
+  opacity: 0.7;
+}
+</style>
