@@ -265,9 +265,10 @@ export default {
         this.getAlbumColours()
       })
 
-      // If oldVal is undefined (first run)
+      // First run: oldVal is undefined
       if (!oldVal) {
         if (!newVal.playing) {
+          console.log('DEBUG: first run, starting idle timer')
           this.startIdleTimer()
         }
         return
