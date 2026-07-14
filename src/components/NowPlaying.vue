@@ -288,8 +288,9 @@ export default {
           title: this.playerResponse.item.album.name,
           image: newArtUrl
         },
-        progress: this.playerResponse.progress_ms,
-        duration: this.playerResponse.item.duration_ms
+        // ⭐ Add these two lines:
+        progress: Number(this.playerResponse.progress_ms) || 0,
+        duration: Number(this.playerResponse.item?.duration_ms) || 0
       }
 
       // -------------------------------
