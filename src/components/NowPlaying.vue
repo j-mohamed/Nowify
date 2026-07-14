@@ -16,9 +16,18 @@
 
       <div class="now-playing__details">
         <h1 class="now-playing__track">{{ playerData.trackTitle }}</h1>
+
         <h2 class="now-playing__artists">
           {{ playerData.trackArtists.join(', ') }}
         </h2>
+
+        <!-- ⭐ Progress Bar -->
+        <div class="now-playing__progress">
+          <div
+            class="now-playing__progress-fill"
+            :style="{ width: progressPercent + '%' }"
+          ></div>
+        </div>
       </div>
     </div>
 
@@ -72,6 +81,14 @@ export default {
       // Idle timer state
       idle: false,
       idleTimer: null,
+
+      // ⭐ Debounce fields (ADD THESE)
+      idlePollCount: 0, // counts consecutive "not playing" polls
+      requiredIdlePolls: 2, // number of polls before switching to idle
+
+      // ⭐ Track + album art caching (ADD THESE)
+      cachedTrackId: null,
+      cachedAlbumArtUrl: null,
 
       // Clock + date
       time: '',
@@ -128,6 +145,14 @@ export default {
         background: 'linear-gradient(120deg, #1a1a3a, #2a2a4a, #1a1a3a)',
         animation: 'gradientMove 12s ease infinite'
       }
+    },
+
+    /* -------------------------------------------------------
+     * Track progress percentage for progress bar
+     * ----------------------------------------------------- */
+    progressPercent() {
+      if (!this.playerData.duration) return 0
+      return (this.playerData.progress / this.playerData.duration) * 100
     },
 
     /* -------------------------------------------------------
@@ -211,41 +236,49 @@ export default {
         !this.playerResponse.item.album?.images ||
         this.playerResponse.item.album.images.length === 0
 
-      // Nothing playing → idle screen
+      // -------------------------------
+      // ⭐ Debounce idle state
+      // -------------------------------
       if (!this.playerResponse.is_playing || noTrack) {
-        this.playerData = this.getEmptyPlayer()
+        this.idlePollCount++
 
-        if (!this.idleTimer) {
-          this.startIdleTimer()
+        if (this.idlePollCount >= this.requiredIdlePolls) {
+          this.playerData = this.getEmptyPlayer()
+
+          if (!this.idleTimer) {
+            this.startIdleTimer()
+          }
+
+          return
         }
 
+        // Not enough bad polls yet → ignore flicker
         return
       }
 
-      // Something is playing → clear idle timer
+      // Reset idle debounce
+      this.idlePollCount = 0
       this.clearIdleTimer()
 
       // -------------------------------
-      // ⭐ Pi‑3 SAFE TRACK CHANGE LOGIC
+      // ⭐ Track + album art caching
       // -------------------------------
-
       const newTrackId = this.playerResponse.item.id
       const newArtUrl = this.playerResponse.item.album.images[0].url
 
-      // 1. Prevent repeated track processing
+      // Prevent repeated track processing
       if (this.cachedTrackId === newTrackId) {
         return
       }
       this.cachedTrackId = newTrackId
 
-      // 2. Detect album art change
+      // Detect album art change
       const shouldUpdateColours = this.cachedAlbumArtUrl !== newArtUrl
       this.cachedAlbumArtUrl = newArtUrl
 
       // -------------------------------
       // ⭐ Update playerData AFTER caching
       // -------------------------------
-
       this.playerData = {
         playing: true,
         trackArtists: this.playerResponse.item.artists.map((a) => a.name),
@@ -254,13 +287,14 @@ export default {
         trackAlbum: {
           title: this.playerResponse.item.album.name,
           image: newArtUrl
-        }
+        },
+        progress: this.playerResponse.progress_ms,
+        duration: this.playerResponse.item.duration_ms
       }
 
       // -------------------------------
       // ⭐ Only extract colours if album art changed
       // -------------------------------
-
       if (shouldUpdateColours) {
         this.$nextTick(() => this.getAlbumColours())
       }
