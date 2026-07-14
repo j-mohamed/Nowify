@@ -211,6 +211,7 @@ export default {
         !this.playerResponse.item.album?.images ||
         this.playerResponse.item.album.images.length === 0
 
+      // Nothing playing → idle screen
       if (!this.playerResponse.is_playing || noTrack) {
         this.playerData = this.getEmptyPlayer()
 
@@ -221,28 +222,48 @@ export default {
         return
       }
 
+      // Something is playing → clear idle timer
       this.clearIdleTimer()
 
-      if (this.playerResponse.item?.id === this.playerData.trackId) {
+      // -------------------------------
+      // ⭐ Pi‑3 SAFE TRACK CHANGE LOGIC
+      // -------------------------------
+
+      const newTrackId = this.playerResponse.item.id
+      const newArtUrl = this.playerResponse.item.album.images[0].url
+
+      // 1. Prevent repeated track processing
+      if (this.cachedTrackId === newTrackId) {
         return
       }
+      this.cachedTrackId = newTrackId
+
+      // 2. Detect album art change
+      const shouldUpdateColours = this.cachedAlbumArtUrl !== newArtUrl
+      this.cachedAlbumArtUrl = newArtUrl
+
+      // -------------------------------
+      // ⭐ Update playerData AFTER caching
+      // -------------------------------
 
       this.playerData = {
         playing: true,
-        trackArtists: this.playerResponse.item.artists.map(
-          (artist) => artist.name
-        ),
+        trackArtists: this.playerResponse.item.artists.map((a) => a.name),
         trackTitle: this.playerResponse.item.name,
-        trackId: this.playerResponse.item.id,
+        trackId: newTrackId,
         trackAlbum: {
           title: this.playerResponse.item.album.name,
-          image: this.playerResponse.item.album.images[0].url
+          image: newArtUrl
         }
       }
 
-      this.$nextTick(() => {
-        this.getAlbumColours()
-      })
+      // -------------------------------
+      // ⭐ Only extract colours if album art changed
+      // -------------------------------
+
+      if (shouldUpdateColours) {
+        this.$nextTick(() => this.getAlbumColours())
+      }
     },
 
     /* -------------------------------------------------------
