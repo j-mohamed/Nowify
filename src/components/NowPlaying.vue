@@ -266,8 +266,11 @@ export default {
       const newTrackId = this.playerResponse.item.id
       const newArtUrl = this.playerResponse.item.album.images[0].url
 
-      // Prevent repeated track processing
+      // Prevent repeated heavy track processing, BUT still update progress
       if (this.cachedTrackId === newTrackId) {
+        this.playerData.progress = Number(this.playerResponse.progress_ms) || 0
+        this.playerData.duration =
+          Number(this.playerResponse.item?.duration_ms) || 0
         return
       }
       this.cachedTrackId = newTrackId
