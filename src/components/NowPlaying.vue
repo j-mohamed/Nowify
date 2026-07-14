@@ -267,13 +267,16 @@ export default {
       const newTrackId = this.playerResponse.item.id
       const newArtUrl = this.playerResponse.item.album.images[0].url
 
+      // ⭐ Detect new track BEFORE using isNewTrack
+      const isNewTrack = this.cachedTrackId !== newTrackId
+
       // ⭐ Background fade-out when track changes
       const bg = document.querySelector('.app-background')
       if (isNewTrack && bg) {
         bg.classList.add('fade')
       }
 
-      // Prevent repeated heavy track processing, BUT still update progress
+      // ⭐ Prevent repeated heavy track processing, BUT still update progress
       if (this.cachedTrackId === newTrackId) {
         this.playerData.progress = Number(this.playerResponse.progress_ms) || 0
         this.playerData.duration =
@@ -298,7 +301,6 @@ export default {
           title: this.playerResponse.item.album.name,
           image: newArtUrl
         },
-        // ⭐ Add these two lines:
         progress: Number(this.playerResponse.progress_ms) || 0,
         duration: Number(this.playerResponse.item?.duration_ms) || 0
       }
@@ -308,6 +310,13 @@ export default {
       // -------------------------------
       if (shouldUpdateColours) {
         this.$nextTick(() => this.getAlbumColours())
+      }
+
+      // ⭐ Fade background back in AFTER colors update
+      if (isNewTrack && bg) {
+        setTimeout(() => {
+          bg.classList.remove('fade')
+        }, 50)
       }
     },
 
