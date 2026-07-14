@@ -33,7 +33,7 @@
 /* Album art image — reduced shadow for Pi‑3 stability */
 .now-playing__image {
   width: 100%;
-  max-width: 700px;
+  max-width: 1000px;
   border-radius: 16px;
   box-shadow: 0 0 12px rgba(0, 0, 0, 0.35); /* safe shadow */
   position: relative;
@@ -45,13 +45,13 @@
 }
 
 .now-playing__track {
-  font-size: 2.6rem;
+  font-size: 3.6rem;
   font-weight: var(--font-weight-heading);
   margin-bottom: 0.5rem;
 }
 
 .now-playing__artists {
-  font-size: 1.6rem;
+  font-size: 2.6rem;
   opacity: 0.85;
   margin-bottom: 2rem;
 }
