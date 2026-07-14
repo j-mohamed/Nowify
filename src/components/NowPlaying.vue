@@ -315,7 +315,22 @@ export default {
         .clearFilters()
         .getPalette()
         .then((palette) => {
+          // Extract colors using your existing handler
           this.handleAlbumPalette(palette)
+
+          // After handleAlbumPalette sets this.colourPalette,
+          // update CSS variables for the gradient progress bar
+          if (this.colourPalette) {
+            document.documentElement.style.setProperty(
+              '--accent-1',
+              this.colourPalette.background
+            )
+
+            document.documentElement.style.setProperty(
+              '--accent-2',
+              this.colourPalette.text
+            )
+          }
         })
     },
 
