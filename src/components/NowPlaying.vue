@@ -338,7 +338,7 @@ export default {
           if (!this.colourPalette) return
 
           // ---------------------------------------
-          // ⭐ Progress bar gradient colors
+          // ⭐ Progress bar gradient colors (unchanged)
           // ---------------------------------------
           document.documentElement.style.setProperty(
             '--accent-1',
@@ -353,10 +353,14 @@ export default {
           // ---------------------------------------
           // ⭐ Full-page background gradient colors
           // ---------------------------------------
-          const base = this.colourPalette.background
+          // Use colourful swatches instead of dark muted ones
+          const base =
+            palette.Vibrant?.hex ||
+            palette.LightVibrant?.hex ||
+            this.colourPalette.background
 
-          // Create a contrasting second colour (+35 brightness)
-          const contrast = this.adjustBrightness(base, 35)
+          // Strong contrast so the gradient is actually visible
+          const contrast = this.adjustBrightness(base, 120)
 
           document.documentElement.style.setProperty('--bg-1', base)
           document.documentElement.style.setProperty('--bg-2', contrast)
