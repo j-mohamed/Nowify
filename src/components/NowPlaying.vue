@@ -353,16 +353,28 @@ export default {
           // ---------------------------------------
           // ⭐ Full-page background gradient colors
           // ---------------------------------------
-          document.documentElement.style.setProperty(
-            '--bg-1',
-            this.colourPalette.background
-          )
+          const base = this.colourPalette.background
 
-          document.documentElement.style.setProperty(
-            '--bg-2',
-            this.colourPalette.text
-          )
+          // Create a contrasting second colour (+35 brightness)
+          const contrast = this.adjustBrightness(base, 35)
+
+          document.documentElement.style.setProperty('--bg-1', base)
+          document.documentElement.style.setProperty('--bg-2', contrast)
         })
+    },
+
+    // ⭐ Helper function MUST be outside getAlbumColours()
+    adjustBrightness(hex, percent) {
+      const num = parseInt(hex.replace('#', ''), 16)
+      let r = (num >> 16) + percent
+      let g = ((num >> 8) & 0x00ff) + percent
+      let b = (num & 0x0000ff) + percent
+
+      r = Math.min(255, Math.max(0, r))
+      g = Math.min(255, Math.max(0, g))
+      b = Math.min(255, Math.max(0, b))
+
+      return '#' + (b | (g << 8) | (r << 16)).toString(16).padStart(6, '0')
     },
 
     handleAlbumPalette(palette) {
