@@ -331,39 +331,44 @@ export default {
         .clearFilters()
         .getPalette()
         .then((palette) => {
-          // Use your existing palette handler
           this.handleAlbumPalette(palette)
-
-          // Ensure we have a valid palette
           if (!this.colourPalette) return
 
-          // ---------------------------------------
-          // ⭐ Progress bar gradient colors (unchanged)
-          // ---------------------------------------
+          // Progress bar (unchanged)
           document.documentElement.style.setProperty(
             '--accent-1',
             this.colourPalette.background
           )
-
           document.documentElement.style.setProperty(
             '--accent-2',
             this.colourPalette.text
           )
 
-          // ---------------------------------------
-          // ⭐ Full-page background gradient colors
-          // ---------------------------------------
-          // Use colourful swatches instead of dark muted ones
+          // Background element
+          const bg = document.querySelector('.app-background')
+          if (!bg) return
+
+          // Fade out
+          bg.classList.add('fade')
+
+          // Pick colourful base
           const base =
             palette.Vibrant?.hex ||
             palette.LightVibrant?.hex ||
             this.colourPalette.background
 
-          // Strong contrast so the gradient is actually visible
+          // Strong contrast
           const contrast = this.adjustBrightness(base, 120)
 
+          // Update gradient colours
           document.documentElement.style.setProperty('--bg-1', base)
           document.documentElement.style.setProperty('--bg-2', contrast)
+
+          // ⭐ Force repaint BEFORE fade-in
+          void bg.offsetHeight
+
+          // Fade in
+          bg.classList.remove('fade')
         })
     },
 
