@@ -25,7 +25,7 @@
 
 /* Album art container */
 .now-playing__cover {
-  max-width: 420px;
+  max-width: 960px;
   margin: 0 auto;
   position: relative;
 }
@@ -33,7 +33,7 @@
 /* Album art image — reduced shadow for Pi‑3 stability */
 .now-playing__image {
   width: 100%;
-  max-width: 1000px;
+  max-width: 960px;
   border-radius: 16px;
   box-shadow: 0 0 12px rgba(0, 0, 0, 0.35); /* safe shadow */
   position: relative;
