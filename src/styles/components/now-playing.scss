@@ -107,3 +107,23 @@
     padding-left: var(--spacing-xl);
   }
 }
+
+.app-background {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+
+  /* Default gradient */
+  background: linear-gradient(
+    135deg,
+    var(--bg-1, #141420),
+    var(--bg-2, #2a2a40)
+  );
+
+  transition: opacity 0.35s ease-out;
+  opacity: 1;
+}
+
+.app-background.fade {
+  opacity: 0;
+}

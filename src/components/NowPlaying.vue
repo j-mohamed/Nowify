@@ -1,5 +1,6 @@
 <template>
   <div id="app">
+    <div class="app-background"></div>
     <!-- PLAYING VIEW -->
     <div
       v-if="playerData.playing"
@@ -266,6 +267,12 @@ export default {
       const newTrackId = this.playerResponse.item.id
       const newArtUrl = this.playerResponse.item.album.images[0].url
 
+      // ⭐ Background fade-out when track changes
+      const bg = document.querySelector('.app-background')
+      if (isNewTrack && bg) {
+        bg.classList.add('fade')
+      }
+
       // Prevent repeated heavy track processing, BUT still update progress
       if (this.cachedTrackId === newTrackId) {
         this.playerData.progress = Number(this.playerResponse.progress_ms) || 0
@@ -315,22 +322,37 @@ export default {
         .clearFilters()
         .getPalette()
         .then((palette) => {
-          // Extract colors using your existing handler
+          // Use your existing palette handler
           this.handleAlbumPalette(palette)
 
-          // After handleAlbumPalette sets this.colourPalette,
-          // update CSS variables for the gradient progress bar
-          if (this.colourPalette) {
-            document.documentElement.style.setProperty(
-              '--accent-1',
-              this.colourPalette.background
-            )
+          // Ensure we have a valid palette
+          if (!this.colourPalette) return
 
-            document.documentElement.style.setProperty(
-              '--accent-2',
-              this.colourPalette.text
-            )
-          }
+          // ---------------------------------------
+          // ⭐ Progress bar gradient colors
+          // ---------------------------------------
+          document.documentElement.style.setProperty(
+            '--accent-1',
+            this.colourPalette.background
+          )
+
+          document.documentElement.style.setProperty(
+            '--accent-2',
+            this.colourPalette.text
+          )
+
+          // ---------------------------------------
+          // ⭐ Full-page background gradient colors
+          // ---------------------------------------
+          document.documentElement.style.setProperty(
+            '--bg-1',
+            this.colourPalette.background
+          )
+
+          document.documentElement.style.setProperty(
+            '--bg-2',
+            this.colourPalette.text
+          )
         })
     },
 
