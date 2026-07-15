@@ -125,6 +125,7 @@ export default {
       if (hour < 6) {
         return {
           background: 'linear-gradient(120deg, #141428, #0a0a18, #141428)',
+          backgroundSize: '300% 300%',
           animation: 'circadianWave 22s ease-in-out infinite'
         }
       }
@@ -133,6 +134,7 @@ export default {
       if (hour < 12) {
         return {
           background: 'linear-gradient(120deg, #f4b78a, #d48a5a, #f4b78a)',
+          backgroundSize: '300% 300%',
           animation: 'circadianWave 22s ease-in-out infinite'
         }
       }
@@ -141,6 +143,7 @@ export default {
       if (hour < 18) {
         return {
           background: 'linear-gradient(120deg, #8cc7f2, #4a9bd6, #8cc7f2)',
+          backgroundSize: '300% 300%',
           animation: 'circadianWave 22s ease-in-out infinite'
         }
       }
@@ -148,6 +151,7 @@ export default {
       /* Evening (18–24) */
       return {
         background: 'linear-gradient(120deg, #2a3a5f, #1a2540, #2a3a5f)',
+        backgroundSize: '300% 300%',
         animation: 'circadianWave 22s ease-in-out infinite'
       }
     },
