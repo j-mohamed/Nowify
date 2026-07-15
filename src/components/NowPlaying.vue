@@ -121,30 +121,34 @@ export default {
     circadianGradient() {
       const hour = new Date().getHours()
 
+      /* Night (0–6) */
       if (hour < 6) {
         return {
-          background: 'linear-gradient(120deg, #0a0a1a, #1a1a2a, #0a0a1a)',
-          animation: 'gradientMove 12s ease infinite'
+          background: 'linear-gradient(120deg, #141428, #0a0a18, #141428)',
+          animation: 'circadianWave 22s ease-in-out infinite'
         }
       }
 
+      /* Morning (6–12) */
       if (hour < 12) {
         return {
-          background: 'linear-gradient(120deg, #ffcf91, #ffd7a8, #ffcf91)',
-          animation: 'gradientMove 12s ease infinite'
+          background: 'linear-gradient(120deg, #f4b78a, #d48a5a, #f4b78a)',
+          animation: 'circadianWave 22s ease-in-out infinite'
         }
       }
 
+      /* Afternoon (12–18) */
       if (hour < 18) {
         return {
-          background: 'linear-gradient(120deg, #87cefa, #a0d8ff, #87cefa)',
-          animation: 'gradientMove 12s ease infinite'
+          background: 'linear-gradient(120deg, #8cc7f2, #4a9bd6, #8cc7f2)',
+          animation: 'circadianWave 22s ease-in-out infinite'
         }
       }
 
+      /* Evening (18–24) */
       return {
-        background: 'linear-gradient(120deg, #1a1a3a, #2a2a4a, #1a1a3a)',
-        animation: 'gradientMove 12s ease infinite'
+        background: 'linear-gradient(120deg, #2a3a5f, #1a2540, #2a3a5f)',
+        animation: 'circadianWave 22s ease-in-out infinite'
       }
     },
 
@@ -499,6 +503,7 @@ export default {
 }
 
 /* Wave-like circadian gradient */
+
 @keyframes circadianWave {
   0% {
     background-position: 0% 50%;
@@ -521,11 +526,11 @@ export default {
   position: absolute;
   inset: 0;
 
-  /* Multi-stop gradient for visible depth */
+  /* Increased contrast for visible movement */
   background: linear-gradient(
     135deg,
     var(--circadian-1),
-    color-mix(in srgb, var(--circadian-1) 85%, black),
+    color-mix(in srgb, var(--circadian-1) 30%, black),
     var(--circadian-1)
   );
 
@@ -552,12 +557,12 @@ export default {
 }
 
 .screensaver__time {
-  font-size: 5rem;
+  font-size: 10rem;
   font-weight: 300;
 }
 
 .screensaver__date {
-  font-size: 1.5rem;
+  font-size: 3rem;
   opacity: 0.8;
   margin-top: 10px;
 }
