@@ -498,13 +498,19 @@ export default {
   overflow: hidden;
 }
 
-/* Circadian gradient animation */
-@keyframes gradientMove {
+/* Wave-like circadian gradient */
+@keyframes circadianWave {
   0% {
     background-position: 0% 50%;
   }
+  25% {
+    background-position: 50% 55%;
+  }
   50% {
     background-position: 100% 50%;
+  }
+  75% {
+    background-position: 50% 45%;
   }
   100% {
     background-position: 0% 50%;
@@ -514,8 +520,18 @@ export default {
 .screensaver__bg {
   position: absolute;
   inset: 0;
+
+  /* Multi-stop gradient for visible depth */
+  background: linear-gradient(
+    135deg,
+    var(--circadian-1),
+    color-mix(in srgb, var(--circadian-1) 85%, black),
+    var(--circadian-1)
+  );
+
   background-size: 300% 300%;
-  animation: gradientMove 12s ease infinite;
+  animation: circadianWave 22s ease-in-out infinite;
+
   z-index: 1;
 }
 
