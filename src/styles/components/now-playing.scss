@@ -113,12 +113,16 @@
   inset: 0;
   z-index: -1;
 
-  /* Default gradient */
+  /* Dynamic gradient */
   background: linear-gradient(
     135deg,
     var(--bg-1, #141420),
     var(--bg-2, #2a2a40)
   );
+
+  /* Add these two lines for motion */
+  background-size: 300% 300%;
+  animation: gradientMove 16s ease infinite;
 
   transition: opacity 0.35s ease-out;
   opacity: 1;
@@ -126,4 +130,17 @@
 
 .app-background.fade {
   opacity: 0;
+}
+
+/* Safe animation for Raspberry Pi 3 */
+@keyframes gradientMove {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
 }

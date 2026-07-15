@@ -483,7 +483,7 @@ export default {
       this.moveInterval = setInterval(() => {
         this.clockX = Math.random() * 300 - 150
         this.clockY = Math.random() * 300 - 150
-      }, 300000) // 300,000 ms = 5 minutes
+      }, 100000) // 300,000 ms = 5 minutes
     }
   }
 }
