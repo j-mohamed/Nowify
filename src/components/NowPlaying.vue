@@ -1,6 +1,7 @@
 <template>
   <div id="app">
     <div class="app-background"></div>
+
     <!-- PLAYING VIEW -->
     <div
       v-if="playerData.playing"
@@ -28,9 +29,11 @@
             class="now-playing__progress-fill"
             :style="{ width: progressPercent + '%' }"
           ></div>
-          <div class="now-playing__spectrum">
-            <div class="bar" v-for="n in 24" :key="n"></div>
-          </div>
+        </div>
+
+        <!-- ⭐ Spectrum Visualizer -->
+        <div class="now-playing__spectrum">
+          <div class="bar" v-for="n in 24" :key="n" :style="{ '--i': n }"></div>
         </div>
       </div>
     </div>
