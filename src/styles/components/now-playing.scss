@@ -154,14 +154,13 @@
 .now-playing__spectrum {
   display: flex;
   align-items: flex-end;
-  justify-content: flex-start; /* align left */
-  gap: 8px;
-  height: 32px; /* smaller, more subtle */
+  justify-content: flex-start;
+  gap: 10px;
+  height: 34px;
   margin-top: 1rem;
-  margin-left: 0.25rem; /* slight indent */
 }
 
-/* Individual bars */
+/* Bars with randomized animation */
 .now-playing__spectrum .bar {
   width: 6px;
   height: 100%;
@@ -172,25 +171,35 @@
   );
   border-radius: 3px;
 
-  /* Randomized movement */
-  animation: spectrumRandom 1.4s ease-in-out infinite;
-  animation-delay: calc(var(--i) * -0.23s); /* more chaotic */
+  /* Randomized animation timing */
+  animation: spectrumRandom calc(0.8s + (var(--i) * 0.17s)) ease-in-out infinite;
+  animation-delay: calc(var(--i) * -0.31s);
+
   opacity: 0.9;
 }
 
-/* Randomized bounce */
+/* Chaotic, pseudo-synced movement */
 @keyframes spectrumRandom {
   0% {
     transform: scaleY(0.2);
   }
-  25% {
-    transform: scaleY(0.7);
+  10% {
+    transform: scaleY(0.9);
   }
-  50% {
+  25% {
+    transform: scaleY(0.4);
+  }
+  40% {
     transform: scaleY(1);
   }
-  75% {
-    transform: scaleY(0.4);
+  55% {
+    transform: scaleY(0.3);
+  }
+  70% {
+    transform: scaleY(0.8);
+  }
+  85% {
+    transform: scaleY(0.5);
   }
   100% {
     transform: scaleY(0.2);
