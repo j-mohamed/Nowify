@@ -84,11 +84,11 @@ export default {
       idle: false,
       idleTimer: null,
 
-      // ⭐ Debounce fields (ADD THESE)
-      idlePollCount: 0, // counts consecutive "not playing" polls
-      requiredIdlePolls: 2, // number of polls before switching to idle
+      // Debounce fields
+      idlePollCount: 0,
+      requiredIdlePolls: 2,
 
-      // ⭐ Track + album art caching (ADD THESE)
+      // Track + album art caching
       cachedTrackId: null,
       cachedAlbumArtUrl: null,
 
@@ -122,7 +122,6 @@ export default {
     circadianGradient() {
       const hour = new Date().getHours()
 
-      /* Night (0–6) */
       if (hour < 6) {
         return {
           background: 'linear-gradient(120deg, #141428, #0a0a18, #141428)',
@@ -131,7 +130,6 @@ export default {
         }
       }
 
-      /* Morning (6–12) */
       if (hour < 12) {
         return {
           background: 'linear-gradient(120deg, #f4b78a, #d48a5a, #f4b78a)',
@@ -140,7 +138,6 @@ export default {
         }
       }
 
-      /* Afternoon (12–18) */
       if (hour < 18) {
         return {
           background: 'linear-gradient(120deg, #8cc7f2, #4a9bd6, #8cc7f2)',
@@ -149,7 +146,6 @@ export default {
         }
       }
 
-      /* Evening (18–24) */
       return {
         background: 'linear-gradient(120deg, #2a3a5f, #1a2540, #2a3a5f)',
         backgroundSize: '300% 300%',
@@ -244,17 +240,255 @@ export default {
       el.classList.remove('fade-in')
       void el.offsetWidth // force reflow
       el.classList.add('fade-in')
+    },
+
+    /* -------------------------------------------------------
+     * MAIN LOGIC — PLAYING / NOT PLAYING / SCREENSAVER
+     * ----------------------------------------------------- */
+    handleNowPlaying() {
+      const noTrack =
+        !this.playerResponse.item ||
+        !this.playerResponse.item.id ||
+        !this.playerResponse.item.album ||
+        !this.playerResponse.item.artists ||
+        !this.playerResponse.item.album?.images ||
+        this.playerResponse.item.album.images.length === 0
+
+      // Debounce idle state
+      if (!this.playerResponse.is_playing || noTrack) {
+        this.idlePollCount++
+
+        if (this.idlePollCount >= this.requiredIdlePolls) {
+          this.playerData = this.getEmptyPlayer()
+
+          if (!this.idleTimer) {
+            this.startIdleTimer()
+          }
+
+          return
+        }
+
+        return
+      }
+
+      // Reset idle debounce
+      this.idlePollCount = 0
+      this.clearIdleTimer()
+
+      // Track + album art caching
+      const newTrackId = this.playerResponse.item.id
+      const newArtUrl = this.playerResponse.item.album.images[0].url
+
+      const isNewTrack = this.cachedTrackId !== newTrackId
+
+      const bg = document.querySelector('.app-background')
+      if (isNewTrack && bg) {
+        bg.classList.add('fade')
+      }
+
+      // If same track, just update progress/duration
+      if (this.cachedTrackId === newTrackId) {
+        this.playerData.progress = Number(this.playerResponse.progress_ms) || 0
+        this.playerData.duration =
+          Number(this.playerResponse.item?.duration_ms) || 0
+        return
+      }
+
+      this.cachedTrackId = newTrackId
+
+      const shouldUpdateColours = this.cachedAlbumArtUrl !== newArtUrl
+      this.cachedAlbumArtUrl = newArtUrl
+
+      // Update playerData
+      this.playerData = {
+        playing: true,
+        trackArtists: this.playerResponse.item.artists.map((a) => a.name),
+        trackTitle: this.playerResponse.item.name,
+        trackId: newTrackId,
+        trackAlbum: {
+          title: this.playerResponse.item.album.name,
+          image: newArtUrl
+        },
+        progress: Number(this.playerResponse.progress_ms) || 0,
+        duration: Number(this.playerResponse.item?.duration_ms) || 0
+      }
+
+      // Only extract colours if album art changed
+      if (shouldUpdateColours) {
+        this.$nextTick(() => this.getAlbumColours())
+      }
+
+      if (isNewTrack && bg) {
+        setTimeout(() => {
+          bg.classList.remove('fade')
+        }, 50)
+      }
+    },
+
+    /* -------------------------------------------------------
+     * COLOUR EXTRACTION
+     * ----------------------------------------------------- */
+    getAlbumColours() {
+      if (!this.playerData.trackAlbum?.image) return
+
+      Vibrant.from(this.playerData.trackAlbum.image)
+        .quality(1)
+        .clearFilters()
+        .getPalette()
+        .then((palette) => {
+          this.handleAlbumPalette(palette)
+          if (!this.colourPalette) return
+
+          document.documentElement.style.setProperty(
+            '--accent-1',
+            this.colourPalette.background
+          )
+          document.documentElement.style.setProperty(
+            '--accent-2',
+            this.colourPalette.text
+          )
+
+          const bg = document.querySelector('.app-background')
+          if (!bg) return
+
+          bg.classList.add('fade')
+
+          const base =
+            palette.Vibrant?.hex ||
+            palette.LightVibrant?.hex ||
+            this.colourPalette.background
+
+          const contrast = this.adjustBrightness(base, 120)
+
+          document.documentElement.style.setProperty('--bg-1', base)
+          document.documentElement.style.setProperty('--bg-2', contrast)
+
+          void bg.offsetHeight
+          bg.classList.remove('fade')
+        })
+    },
+
+    // Helper: adjust brightness
+    adjustBrightness(hex, percent) {
+      const num = parseInt(hex.replace('#', ''), 16)
+      let r = (num >> 16) + percent
+      let g = ((num >> 8) & 0x00ff) + percent
+      let b = (num & 0x0000ff) + percent
+
+      r = Math.min(255, Math.max(0, r))
+      g = Math.min(255, Math.max(0, g))
+      b = Math.min(255, Math.max(0, b))
+
+      return '#' + (b | (g << 8) | (r << 16)).toString(16).padStart(6, '0')
+    },
+
+    handleAlbumPalette(palette) {
+      let albumColours = Object.keys(palette)
+        .filter((item) => item)
+        .map((colour) => {
+          return {
+            text: palette[colour].getTitleTextColor(),
+            background: palette[colour].getHex()
+          }
+        })
+
+      this.swatches = albumColours
+      this.colourPalette =
+        albumColours[Math.floor(Math.random() * albumColours.length)]
+
+      this.$nextTick(() => {
+        this.setAppColours()
+      })
+    },
+
+    setAppColours() {
+      document.documentElement.style.setProperty(
+        '--color-text-primary',
+        this.colourPalette.text
+      )
+
+      document.documentElement.style.setProperty(
+        '--colour-background-now-playing',
+        this.colourPalette.background
+      )
+    },
+
+    /* -------------------------------------------------------
+     * TOKEN HANDLING
+     * ----------------------------------------------------- */
+    handleExpiredToken() {
+      clearInterval(this.pollPlaying)
+      this.$emit('requestRefreshToken')
+    },
+
+    /* -------------------------------------------------------
+     * IDLE TIMER
+     * ----------------------------------------------------- */
+    startIdleTimer() {
+      this.clearIdleTimer()
+
+      this.idleTimer = setTimeout(() => {
+        this.idle = true
+        this.startClock()
+        this.startClockMovement()
+      }, 30000)
+    },
+
+    clearIdleTimer() {
+      if (this.idleTimer) {
+        clearTimeout(this.idleTimer)
+        this.idleTimer = null
+      }
+
+      this.idle = false
+
+      clearInterval(this.clockInterval)
+      clearInterval(this.moveInterval)
+    },
+
+    /* -------------------------------------------------------
+     * CLOCK LOGIC
+     * ----------------------------------------------------- */
+    startClock() {
+      this.updateClock()
+
+      this.clockInterval = setInterval(() => {
+        this.updateClock()
+      }, 1000)
+    },
+
+    updateClock() {
+      const now = new Date()
+
+      this.time = now.toLocaleTimeString([], {
+        hour: '2-digit',
+        minute: '2-digit'
+      })
+
+      this.date = now.toLocaleDateString([], {
+        weekday: 'long',
+        month: 'long',
+        day: 'numeric'
+      })
+    },
+
+    /* -------------------------------------------------------
+     * CLOCK MOVEMENT (burn-in protection)
+     * ----------------------------------------------------- */
+    startClockMovement() {
+      this.moveInterval = setInterval(() => {
+        this.clockX = Math.random() * 300 - 150
+        this.clockY = Math.random() * 300 - 150
+      }, 100000)
     }
   },
 
   watch: {
     playerData(newVal, oldVal) {
-      // ⭐ Trigger fade only when the track actually changes
       if (oldVal && newVal.trackId !== oldVal.trackId) {
         this.triggerFade()
       }
 
-      // ⭐ Preserve your idle logic
       if (newVal.playing !== oldVal.playing) {
         if (newVal.playing) {
           this.clearIdleTimer()
@@ -263,267 +497,6 @@ export default {
         }
       }
     }
-  },
-
-  /* -------------------------------------------------------
-   * MAIN LOGIC — PLAYING / NOT PLAYING / SCREENSAVER
-   * ----------------------------------------------------- */
-  handleNowPlaying() {
-    const noTrack =
-      !this.playerResponse.item ||
-      !this.playerResponse.item.id ||
-      !this.playerResponse.item.album ||
-      !this.playerResponse.item.artists ||
-      !this.playerResponse.item.album?.images ||
-      this.playerResponse.item.album.images.length === 0
-
-    // -------------------------------
-    // ⭐ Debounce idle state
-    // -------------------------------
-    if (!this.playerResponse.is_playing || noTrack) {
-      this.idlePollCount++
-
-      if (this.idlePollCount >= this.requiredIdlePolls) {
-        this.playerData = this.getEmptyPlayer()
-
-        if (!this.idleTimer) {
-          this.startIdleTimer()
-        }
-
-        return
-      }
-
-      // Not enough bad polls yet → ignore flicker
-      return
-    }
-
-    // Reset idle debounce
-    this.idlePollCount = 0
-    this.clearIdleTimer()
-
-    // -------------------------------
-    // ⭐ Track + album art caching
-    // -------------------------------
-    const newTrackId = this.playerResponse.item.id
-    const newArtUrl = this.playerResponse.item.album.images[0].url
-
-    // ⭐ Detect new track BEFORE using isNewTrack
-    const isNewTrack = this.cachedTrackId !== newTrackId
-
-    // ⭐ Background fade-out when track changes
-    const bg = document.querySelector('.app-background')
-    if (isNewTrack && bg) {
-      bg.classList.add('fade')
-    }
-
-    // ⭐ Prevent repeated heavy track processing, BUT still update progress
-    if (this.cachedTrackId === newTrackId) {
-      this.playerData.progress = Number(this.playerResponse.progress_ms) || 0
-      this.playerData.duration =
-        Number(this.playerResponse.item?.duration_ms) || 0
-      return
-    }
-    this.cachedTrackId = newTrackId
-
-    // Detect album art change
-    const shouldUpdateColours = this.cachedAlbumArtUrl !== newArtUrl
-    this.cachedAlbumArtUrl = newArtUrl
-
-    // -------------------------------
-    // ⭐ Update playerData AFTER caching
-    // -------------------------------
-    this.playerData = {
-      playing: true,
-      trackArtists: this.playerResponse.item.artists.map((a) => a.name),
-      trackTitle: this.playerResponse.item.name,
-      trackId: newTrackId,
-      trackAlbum: {
-        title: this.playerResponse.item.album.name,
-        image: newArtUrl
-      },
-      progress: Number(this.playerResponse.progress_ms) || 0,
-      duration: Number(this.playerResponse.item?.duration_ms) || 0
-    }
-
-    // -------------------------------
-    // ⭐ Only extract colours if album art changed
-    // -------------------------------
-    if (shouldUpdateColours) {
-      this.$nextTick(() => this.getAlbumColours())
-    }
-
-    // ⭐ Fade background back in AFTER colors update
-    if (isNewTrack && bg) {
-      setTimeout(() => {
-        bg.classList.remove('fade')
-      }, 50)
-    }
-  },
-
-  /* -------------------------------------------------------
-   * COLOUR EXTRACTION
-   * ----------------------------------------------------- */
-  getAlbumColours() {
-    if (!this.playerData.trackAlbum?.image) return
-
-    Vibrant.from(this.playerData.trackAlbum.image)
-      .quality(1)
-      .clearFilters()
-      .getPalette()
-      .then((palette) => {
-        this.handleAlbumPalette(palette)
-        if (!this.colourPalette) return
-
-        // Progress bar (unchanged)
-        document.documentElement.style.setProperty(
-          '--accent-1',
-          this.colourPalette.background
-        )
-        document.documentElement.style.setProperty(
-          '--accent-2',
-          this.colourPalette.text
-        )
-
-        // Background element
-        const bg = document.querySelector('.app-background')
-        if (!bg) return
-
-        // Fade out
-        bg.classList.add('fade')
-
-        // Pick colourful base
-        const base =
-          palette.Vibrant?.hex ||
-          palette.LightVibrant?.hex ||
-          this.colourPalette.background
-
-        // Strong contrast
-        const contrast = this.adjustBrightness(base, 120)
-
-        // Update gradient colours
-        document.documentElement.style.setProperty('--bg-1', base)
-        document.documentElement.style.setProperty('--bg-2', contrast)
-
-        // ⭐ Force repaint BEFORE fade-in
-        void bg.offsetHeight
-
-        // Fade in
-        bg.classList.remove('fade')
-      })
-  },
-
-  // ⭐ Helper function MUST be outside getAlbumColours()
-  adjustBrightness(hex, percent) {
-    const num = parseInt(hex.replace('#', ''), 16)
-    let r = (num >> 16) + percent
-    let g = ((num >> 8) & 0x00ff) + percent
-    let b = (num & 0x0000ff) + percent
-
-    r = Math.min(255, Math.max(0, r))
-    g = Math.min(255, Math.max(0, g))
-    b = Math.min(255, Math.max(0, b))
-
-    return '#' + (b | (g << 8) | (r << 16)).toString(16).padStart(6, '0')
-  },
-
-  handleAlbumPalette(palette) {
-    let albumColours = Object.keys(palette)
-      .filter((item) => item)
-      .map((colour) => {
-        return {
-          text: palette[colour].getTitleTextColor(),
-          background: palette[colour].getHex()
-        }
-      })
-
-    this.swatches = albumColours
-    this.colourPalette =
-      albumColours[Math.floor(Math.random() * albumColours.length)]
-
-    this.$nextTick(() => {
-      this.setAppColours()
-    })
-  },
-
-  setAppColours() {
-    document.documentElement.style.setProperty(
-      '--color-text-primary',
-      this.colourPalette.text
-    )
-
-    document.documentElement.style.setProperty(
-      '--colour-background-now-playing',
-      this.colourPalette.background
-    )
-  },
-
-  /* -------------------------------------------------------
-   * TOKEN HANDLING
-   * ----------------------------------------------------- */
-  handleExpiredToken() {
-    clearInterval(this.pollPlaying)
-    this.$emit('requestRefreshToken')
-  },
-
-  /* -------------------------------------------------------
-   * IDLE TIMER
-   * ----------------------------------------------------- */
-  startIdleTimer() {
-    this.clearIdleTimer()
-
-    this.idleTimer = setTimeout(() => {
-      this.idle = true
-      this.startClock()
-      this.startClockMovement()
-    }, 30000)
-  },
-
-  clearIdleTimer() {
-    if (this.idleTimer) {
-      clearTimeout(this.idleTimer)
-      this.idleTimer = null
-    }
-
-    this.idle = false
-
-    clearInterval(this.clockInterval)
-    clearInterval(this.moveInterval)
-  },
-
-  /* -------------------------------------------------------
-   * CLOCK LOGIC
-   * ----------------------------------------------------- */
-  startClock() {
-    this.updateClock()
-
-    this.clockInterval = setInterval(() => {
-      this.updateClock()
-    }, 1000)
-  },
-
-  updateClock() {
-    const now = new Date()
-
-    this.time = now.toLocaleTimeString([], {
-      hour: '2-digit',
-      minute: '2-digit'
-    })
-
-    this.date = now.toLocaleDateString([], {
-      weekday: 'long',
-      month: 'long',
-      day: 'numeric'
-    })
-  },
-
-  /* -------------------------------------------------------
-   * CLOCK MOVEMENT (burn-in protection)
-   * ----------------------------------------------------- */
-  startClockMovement() {
-    this.moveInterval = setInterval(() => {
-      this.clockX = Math.random() * 300 - 150
-      this.clockY = Math.random() * 300 - 150
-    }, 100000) // 300,000 ms = 5 minutes
   }
 }
 </script>
@@ -538,7 +511,6 @@ export default {
 }
 
 /* Wave-like circadian gradient */
-
 @keyframes circadianWave {
   0% {
     background-position: 0% 50%;
@@ -561,7 +533,6 @@ export default {
   position: absolute;
   inset: 0;
 
-  /* Increased contrast for visible movement */
   background: linear-gradient(
     135deg,
     var(--circadian-1),
