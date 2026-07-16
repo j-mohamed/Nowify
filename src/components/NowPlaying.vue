@@ -23,8 +23,7 @@
           {{ playerData.trackArtists.join(', ') }}
         </h2>
 
-        <!-- ⭐ Progress Bar with Flowing Ribbon -->
-        <!-- ⭐ Clean Progress Bar (no ribbon) -->
+        <!-- Clean progress bar -->
         <div class="now-playing__progress">
           <div
             class="now-playing__progress-fill"
