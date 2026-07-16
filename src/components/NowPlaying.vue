@@ -23,17 +23,16 @@
           {{ playerData.trackArtists.join(', ') }}
         </h2>
 
-        <!-- ⭐ Progress Bar -->
-        <div class="now-playing__progress">
-          <div
-            class="now-playing__progress-fill"
-            :style="{ width: progressPercent + '%' }"
-          ></div>
-        </div>
+        <!-- ⭐ Progress Bar with Flowing Ribbon -->
+        <div class="now-playing__progress-wrapper">
+          <div class="now-playing__ribbon"></div>
 
-        <!-- ⭐ Spectrum Visualizer -->
-        <div class="now-playing__spectrum">
-          <div class="bar" v-for="n in 5" :key="n" :style="{ '--i': n }"></div>
+          <div class="now-playing__progress">
+            <div
+              class="now-playing__progress-fill"
+              :style="{ width: progressPercent + '%' }"
+            ></div>
+          </div>
         </div>
       </div>
     </div>

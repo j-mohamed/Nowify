@@ -9,10 +9,7 @@
   height: 100%;
   width: 100%;
   padding: var(--spacing-xl);
-
-  /* Lightweight gradient background (safe) */
   background: transparent;
-
   color: var(--color-text-primary);
 }
 
@@ -35,7 +32,7 @@
   width: 100%;
   max-width: 960px;
   border-radius: 16px;
-  box-shadow: 0 0 12px rgba(0, 0, 0, 0.35); /* safe shadow */
+  box-shadow: 0 0 12px rgba(0, 0, 0, 0.35);
   position: relative;
 }
 
@@ -56,40 +53,89 @@
   margin-bottom: 2rem;
 }
 
-/* Progress bar (smooth + gradient + Pi‑3 safe) */
-.now-playing__progress {
+/* ---------------------------------------------------------------------------
+   Flowing Ribbon + Progress Bar (Pi‑3 Safe, No Overlap)
+--------------------------------------------------------------------------- */
+
+.now-playing__progress-wrapper {
+  position: relative;
   width: 100%;
+  margin-top: 2rem; /* clean spacing below artists */
+}
+
+/* Flowing ribbon behind the progress bar */
+.now-playing__ribbon {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+
+  height: 10px; /* slightly taller than progress bar */
+  border-radius: 999px;
+
+  background: linear-gradient(
+    90deg,
+    var(--accent-1, #1db954),
+    var(--accent-2, #1ed760),
+    var(--accent-1, #1db954)
+  );
+
+  background-size: 300% 100%;
+  animation: ribbonFlow 12s ease-in-out infinite;
+  opacity: 0.35;
+  z-index: 0; /* behind progress bar */
+}
+
+/* Progress bar foreground */
+.now-playing__progress {
+  position: relative;
   height: 6px;
-  margin-top: 1.5rem;
   background: rgba(255, 255, 255, 0.12);
   border-radius: 999px;
   overflow: hidden;
-  position: relative;
+  z-index: 1; /* above ribbon */
 }
 
 .now-playing__progress-fill {
   height: 100%;
   border-radius: inherit;
 
-  /* Spotify-style gradient */
   background: linear-gradient(
     90deg,
     var(--accent-1, #1db954),
     var(--accent-2, #1ed760)
   );
 
-  /* Smooth progress animation */
   transition: width 0.25s linear;
 }
 
-/* Active/Idle states */
+/* Flowing ribbon animation */
+@keyframes ribbonFlow {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+/* ---------------------------------------------------------------------------
+   Active/Idle states
+--------------------------------------------------------------------------- */
+
 .now-playing--active,
 .now-playing--idle {
   align-items: center;
   justify-content: center;
 }
 
-/* Desktop layout */
+/* ---------------------------------------------------------------------------
+   Desktop layout
+--------------------------------------------------------------------------- */
+
 @media only screen and (min-width: 767px) {
   .now-playing {
     flex-flow: row nowrap;
@@ -108,19 +154,21 @@
   }
 }
 
+/* ---------------------------------------------------------------------------
+   App Background (Screensaver Gradient)
+--------------------------------------------------------------------------- */
+
 .app-background {
   position: fixed;
   inset: 0;
   z-index: -1;
 
-  /* Dynamic gradient */
   background: linear-gradient(
     135deg,
     var(--bg-1, #141420),
     var(--bg-2, #2a2a40)
   );
 
-  /* Add these two lines for motion */
   background-size: 300% 300%;
   animation: gradientWave 16s ease infinite;
 
@@ -148,60 +196,5 @@
   }
   100% {
     background-position: 0% 50%;
-  }
-}
-/* Minimal left-aligned micro spectrum */
-.now-playing__spectrum {
-  display: flex;
-  align-items: flex-end;
-  justify-content: flex-start;
-  gap: 10px;
-  height: 34px;
-  margin-top: 1rem;
-}
-
-/* Bars with randomized animation */
-.now-playing__spectrum .bar {
-  width: 6px;
-  height: 100%;
-  background: linear-gradient(
-    to top,
-    var(--accent-1, #1db954),
-    var(--accent-2, #1ed760)
-  );
-  border-radius: 3px;
-
-  /* Randomized animation timing */
-  animation: spectrumRandom calc(0.8s + (var(--i) * 0.17s)) ease-in-out infinite;
-  animation-delay: calc(var(--i) * -0.31s);
-
-  opacity: 0.9;
-}
-
-/* Chaotic, pseudo-synced movement */
-@keyframes spectrumRandom {
-  0% {
-    transform: scaleY(0.2);
-  }
-  10% {
-    transform: scaleY(0.9);
-  }
-  25% {
-    transform: scaleY(0.4);
-  }
-  40% {
-    transform: scaleY(1);
-  }
-  55% {
-    transform: scaleY(0.3);
-  }
-  70% {
-    transform: scaleY(0.8);
-  }
-  85% {
-    transform: scaleY(0.5);
-  }
-  100% {
-    transform: scaleY(0.2);
   }
 }
