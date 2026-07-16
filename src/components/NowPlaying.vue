@@ -33,7 +33,7 @@
 
         <!-- ⭐ Spectrum Visualizer -->
         <div class="now-playing__spectrum">
-          <div class="bar" v-for="n in 24" :key="n" :style="{ '--i': n }"></div>
+          <div class="bar" v-for="n in 5" :key="n" :style="{ '--i': n }"></div>
         </div>
       </div>
     </div>

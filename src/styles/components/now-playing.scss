@@ -150,40 +150,49 @@
     background-position: 0% 50%;
   }
 }
-/* Spectrum container */
+/* Minimal left-aligned micro spectrum */
 .now-playing__spectrum {
   display: flex;
   align-items: flex-end;
-  justify-content: center;
-  gap: 6px;
-  height: 60px;
-  margin-top: 2rem;
+  justify-content: flex-start; /* align left */
+  gap: 8px;
+  height: 32px; /* smaller, more subtle */
+  margin-top: 1rem;
+  margin-left: 0.25rem; /* slight indent */
 }
 
 /* Individual bars */
 .now-playing__spectrum .bar {
   width: 6px;
-  height: 20px;
+  height: 100%;
   background: linear-gradient(
     to top,
     var(--accent-1, #1db954),
     var(--accent-2, #1ed760)
   );
   border-radius: 3px;
-  animation: spectrumBounce 1.2s ease-in-out infinite;
-  animation-delay: calc(var(--i) * -0.1s);
+
+  /* Randomized movement */
+  animation: spectrumRandom 1.4s ease-in-out infinite;
+  animation-delay: calc(var(--i) * -0.23s); /* more chaotic */
   opacity: 0.9;
 }
 
-/* Wave-like bounce */
-@keyframes spectrumBounce {
+/* Randomized bounce */
+@keyframes spectrumRandom {
   0% {
-    transform: scaleY(0.3);
+    transform: scaleY(0.2);
+  }
+  25% {
+    transform: scaleY(0.7);
   }
   50% {
     transform: scaleY(1);
   }
+  75% {
+    transform: scaleY(0.4);
+  }
   100% {
-    transform: scaleY(0.3);
+    transform: scaleY(0.2);
   }
 }
