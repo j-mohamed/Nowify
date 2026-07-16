@@ -150,3 +150,40 @@
     background-position: 0% 50%;
   }
 }
+/* Spectrum container */
+.now-playing__spectrum {
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 6px;
+  height: 60px;
+  margin-top: 2rem;
+}
+
+/* Individual bars */
+.now-playing__spectrum .bar {
+  width: 6px;
+  height: 20px;
+  background: linear-gradient(
+    to top,
+    var(--accent-1, #1db954),
+    var(--accent-2, #1ed760)
+  );
+  border-radius: 3px;
+  animation: spectrumBounce 1.2s ease-in-out infinite;
+  animation-delay: calc(var(--i) * -0.1s);
+  opacity: 0.9;
+}
+
+/* Wave-like bounce */
+@keyframes spectrumBounce {
+  0% {
+    transform: scaleY(0.3);
+  }
+  50% {
+    transform: scaleY(1);
+  }
+  100% {
+    transform: scaleY(0.3);
+  }
+}

@@ -28,6 +28,9 @@
             class="now-playing__progress-fill"
             :style="{ width: progressPercent + '%' }"
           ></div>
+          <div class="now-playing__spectrum">
+            <div class="bar" v-for="n in 24" :key="n"></div>
+          </div>
         </div>
       </div>
     </div>

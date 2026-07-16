@@ -43,27 +43,30 @@ export default {
   computed: {},
 
   mounted() {
-    /**
-     * Set access token on load.
-     */
+    // 1. Handle redirect auth code (after Spotify login)
     this.getUrlAuthCode()
 
-    /**
-     * Refresh token already exists - we must get a new one.
-     */
+    // 2. If we already have a refresh token, refresh immediately
     if (this.auth.refreshToken) {
       this.requestAccessTokens('refresh_token')
     }
 
-    /**
-     * Auto‑trigger Spotify login when no tokens exist.
-     * This makes the kiosk log in automatically.
-     */
+    // 3. Auto-login if no tokens exist
     if (!this.auth.refreshToken && !this.auth.accessToken) {
       setTimeout(() => {
         this.initAuthorise()
       }, 1500)
     }
+
+    // 4. Auto-refresh every 55 minutes (Spotify tokens last 60)
+    this.refreshTimer = setInterval(
+      () => {
+        if (this.auth.refreshToken) {
+          this.requestAccessTokens('refresh_token')
+        }
+      },
+      55 * 60 * 1000
+    )
   },
 
   methods: {
@@ -138,6 +141,10 @@ export default {
        * Auth token expired.
        */
       if (accessTokenResponse.error?.error === 'invalid_grant') {
+        // retry once after 5 seconds
+        setTimeout(() => {
+          this.requestAccessTokens('refresh_token')
+        }, 5000)
         return
       }
 
