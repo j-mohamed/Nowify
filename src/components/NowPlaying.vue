@@ -451,7 +451,7 @@ export default {
       this.moveInterval = setInterval(() => {
         this.clockX = Math.random() * 300 - 150
         this.clockY = Math.random() * 300 - 150
-      }, 100000)
+      }, 50000)
     }
   },
 
