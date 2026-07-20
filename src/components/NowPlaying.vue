@@ -105,20 +105,19 @@ export default {
   },
 
   mounted() {
+    // START CLOCK IMMEDIATELY — Do not tie clock execution to idle state
+    this.startClock()
     this.setDataInterval()
   },
 
   beforeDestroy() {
     clearInterval(this.pollPlaying)
-    this.clearIdleTimer()
     clearInterval(this.clockInterval)
     clearInterval(this.moveInterval)
+    this.clearIdleTimer()
   },
 
   computed: {
-    /* -------------------------------------------------------
-     * Circadian gradient based on current time
-     * ----------------------------------------------------- */
     circadianGradient() {
       const hour = new Date().getHours()
 
@@ -153,17 +152,11 @@ export default {
       }
     },
 
-    /* -------------------------------------------------------
-     * Track progress percentage for progress bar
-     * ----------------------------------------------------- */
     progressPercent() {
       if (!this.playerData.duration) return 0
       return (this.playerData.progress / this.playerData.duration) * 100
     },
 
-    /* -------------------------------------------------------
-     * Clock drifting position
-     * ----------------------------------------------------- */
     clockPosition() {
       return {
         transform: `translate(${this.clockX}px, ${this.clockY}px)`
@@ -172,9 +165,6 @@ export default {
   },
 
   methods: {
-    /* -------------------------------------------------------
-     * POLLING SPOTIFY
-     * ----------------------------------------------------- */
     async getNowPlaying() {
       let data = {}
 
@@ -187,6 +177,11 @@ export default {
             }
           }
         )
+
+        if (response.status === 401) {
+          this.handleExpiredToken()
+          return
+        }
 
         if (!response.ok) throw new Error(response.status)
 
@@ -201,10 +196,7 @@ export default {
         this.playerResponse = data
         this.handleNowPlaying()
       } catch (error) {
-        this.handleExpiredToken()
-        data = this.getEmptyPlayer()
-        this.playerResponse = data
-        this.handleNowPlaying()
+        console.warn('Spotify fetch error:', error)
       }
     },
 
@@ -230,21 +222,15 @@ export default {
       }
     },
 
-    /* -------------------------------------------------------
-     * FADE-IN TRACK TRANSITION
-     * ----------------------------------------------------- */
     triggerFade() {
       const el = this.$el.querySelector('.now-playing')
       if (!el) return
 
       el.classList.remove('fade-in')
-      void el.offsetWidth // force reflow
+      void el.offsetWidth
       el.classList.add('fade-in')
     },
 
-    /* -------------------------------------------------------
-     * MAIN LOGIC — PLAYING / NOT PLAYING / SCREENSAVER
-     * ----------------------------------------------------- */
     handleNowPlaying() {
       const noTrack =
         !this.playerResponse.item ||
@@ -254,31 +240,25 @@ export default {
         !this.playerResponse.item.album?.images ||
         this.playerResponse.item.album.images.length === 0
 
-      // Debounce idle state
       if (!this.playerResponse.is_playing || noTrack) {
         this.idlePollCount++
 
         if (this.idlePollCount >= this.requiredIdlePolls) {
           this.playerData = this.getEmptyPlayer()
 
-          if (!this.idleTimer) {
+          if (!this.idleTimer && !this.idle) {
             this.startIdleTimer()
           }
-
-          return
         }
-
         return
       }
 
-      // Reset idle debounce
+      // Reset idle state when music plays
       this.idlePollCount = 0
       this.clearIdleTimer()
 
-      // Track + album art caching
       const newTrackId = this.playerResponse.item.id
       const newArtUrl = this.playerResponse.item.album.images[0].url
-
       const isNewTrack = this.cachedTrackId !== newTrackId
 
       const bg = document.querySelector('.app-background')
@@ -286,7 +266,6 @@ export default {
         bg.classList.add('fade')
       }
 
-      // If same track, just update progress/duration
       if (this.cachedTrackId === newTrackId) {
         this.playerData.progress = Number(this.playerResponse.progress_ms) || 0
         this.playerData.duration =
@@ -299,7 +278,6 @@ export default {
       const shouldUpdateColours = this.cachedAlbumArtUrl !== newArtUrl
       this.cachedAlbumArtUrl = newArtUrl
 
-      // Update playerData
       this.playerData = {
         playing: true,
         trackArtists: this.playerResponse.item.artists.map((a) => a.name),
@@ -313,7 +291,6 @@ export default {
         duration: Number(this.playerResponse.item?.duration_ms) || 0
       }
 
-      // Only extract colours if album art changed
       if (shouldUpdateColours) {
         this.$nextTick(() => this.getAlbumColours())
       }
@@ -325,14 +302,12 @@ export default {
       }
     },
 
-    /* -------------------------------------------------------
-     * COLOUR EXTRACTION
-     * ----------------------------------------------------- */
     getAlbumColours() {
       if (!this.playerData.trackAlbum?.image) return
 
+      // Quality setting 3 minimizes CPU strain on the Raspberry Pi
       Vibrant.from(this.playerData.trackAlbum.image)
-        .quality(1)
+        .quality(3)
         .clearFilters()
         .getPalette()
         .then((palette) => {
@@ -366,9 +341,9 @@ export default {
           void bg.offsetHeight
           bg.classList.remove('fade')
         })
+        .catch((err) => console.warn('Vibrant palette error:', err))
     },
 
-    // Helper: adjust brightness
     adjustBrightness(hex, percent) {
       const num = parseInt(hex.replace('#', ''), 16)
       let r = (num >> 16) + percent
@@ -384,13 +359,15 @@ export default {
 
     handleAlbumPalette(palette) {
       let albumColours = Object.keys(palette)
-        .filter((item) => item)
+        .filter((item) => palette[item])
         .map((colour) => {
           return {
             text: palette[colour].getTitleTextColor(),
             background: palette[colour].getHex()
           }
         })
+
+      if (!albumColours.length) return
 
       this.swatches = albumColours
       this.colourPalette =
@@ -413,23 +390,16 @@ export default {
       )
     },
 
-    /* -------------------------------------------------------
-     * TOKEN HANDLING
-     * ----------------------------------------------------- */
     handleExpiredToken() {
       clearInterval(this.pollPlaying)
       this.$emit('requestRefreshToken')
     },
 
-    /* -------------------------------------------------------
-     * IDLE TIMER
-     * ----------------------------------------------------- */
     startIdleTimer() {
       this.clearIdleTimer()
 
       this.idleTimer = setTimeout(() => {
         this.idle = true
-        this.startClock()
         this.startClockMovement()
       }, 30000)
     },
@@ -441,17 +411,12 @@ export default {
       }
 
       this.idle = false
-
-      clearInterval(this.clockInterval)
       clearInterval(this.moveInterval)
     },
 
-    /* -------------------------------------------------------
-     * CLOCK LOGIC
-     * ----------------------------------------------------- */
     startClock() {
       this.updateClock()
-
+      clearInterval(this.clockInterval)
       this.clockInterval = setInterval(() => {
         this.updateClock()
       }, 1000)
@@ -472,10 +437,8 @@ export default {
       })
     },
 
-    /* -------------------------------------------------------
-     * CLOCK MOVEMENT (burn-in protection)
-     * ----------------------------------------------------- */
     startClockMovement() {
+      clearInterval(this.moveInterval)
       this.moveInterval = setInterval(() => {
         this.clockX = Math.random() * 300 - 150
         this.clockY = Math.random() * 300 - 150
