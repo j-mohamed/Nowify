@@ -392,16 +392,17 @@ export default {
       )
     },
 
+    /* CHANGED: Clean up interval timer completely when token expires */
     handleExpiredToken() {
       clearInterval(this.pollPlaying)
+      this.pollPlaying = null
       this.$emit('requestRefreshToken')
     },
 
     /* -------------------------------------------------------
-     * IDLE TIMER (FIXED)
+     * IDLE TIMER
      * ----------------------------------------------------- */
     startIdleTimer() {
-      // Clear existing timeout without resetting 'this.idle = false'
       if (this.idleTimer) {
         clearTimeout(this.idleTimer)
         this.idleTimer = null
@@ -456,14 +457,21 @@ export default {
   },
 
   /* -------------------------------------------------------
-   * WATCHERS (FIXED)
+   * WATCHERS
    * ----------------------------------------------------- */
   watch: {
     playerData(newVal, oldVal) {
       if (oldVal && newVal.trackId !== oldVal.trackId) {
         this.triggerFade()
       }
-      // Removed the newVal.playing toggle here so it no longer fights with handleNowPlaying
+    },
+
+    /* CHANGED: The instant the parent sends down a new access token, fetch immediately and resume polling */
+    'auth.accessToken': function (newToken) {
+      if (newToken) {
+        this.setDataInterval()
+        this.getNowPlaying()
+      }
     }
   }
 }
