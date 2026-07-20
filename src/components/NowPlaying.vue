@@ -240,12 +240,14 @@ export default {
         !this.playerResponse.item.album?.images ||
         this.playerResponse.item.album.images.length === 0
 
+      // MUSIC STOPPED / NOT PLAYING
       if (!this.playerResponse.is_playing || noTrack) {
         this.idlePollCount++
 
         if (this.idlePollCount >= this.requiredIdlePolls) {
           this.playerData = this.getEmptyPlayer()
 
+          // Start screensaver countdown if not already counting down or active
           if (!this.idleTimer && !this.idle) {
             this.startIdleTimer()
           }
@@ -253,9 +255,9 @@ export default {
         return
       }
 
-      // Reset idle state when music plays
+      // MUSIC IS PLAYING
       this.idlePollCount = 0
-      this.clearIdleTimer()
+      this.clearIdleTimer() // Immediately dismisses screensaver when music plays
 
       const newTrackId = this.playerResponse.item.id
       const newArtUrl = this.playerResponse.item.album.images[0].url
@@ -395,8 +397,15 @@ export default {
       this.$emit('requestRefreshToken')
     },
 
+    /* -------------------------------------------------------
+     * IDLE TIMER (FIXED)
+     * ----------------------------------------------------- */
     startIdleTimer() {
-      this.clearIdleTimer()
+      // Clear existing timeout without resetting 'this.idle = false'
+      if (this.idleTimer) {
+        clearTimeout(this.idleTimer)
+        this.idleTimer = null
+      }
 
       this.idleTimer = setTimeout(() => {
         this.idle = true
@@ -446,19 +455,15 @@ export default {
     }
   },
 
+  /* -------------------------------------------------------
+   * WATCHERS (FIXED)
+   * ----------------------------------------------------- */
   watch: {
     playerData(newVal, oldVal) {
       if (oldVal && newVal.trackId !== oldVal.trackId) {
         this.triggerFade()
       }
-
-      if (newVal.playing !== oldVal.playing) {
-        if (newVal.playing) {
-          this.clearIdleTimer()
-        } else {
-          this.startIdleTimer()
-        }
-      }
+      // Removed the newVal.playing toggle here so it no longer fights with handleNowPlaying
     }
   }
 }
