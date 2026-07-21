@@ -148,6 +148,9 @@ export default {
         this.auth.status = true
         this.isRefreshing = false
 
+        // ⭐ Tell NowPlaying.vue that refresh is complete
+        this.$root.$emit('tokenRefreshed')
+
         // Clean URL (remove ?code= & ?state=)
         window.history.replaceState(
           null,

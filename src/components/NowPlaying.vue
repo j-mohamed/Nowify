@@ -101,6 +101,11 @@ export default {
     this.startClock()
     this.startClockMovement()
     this.setDataInterval()
+
+    // ⭐ When Spotify token refresh completes, exit refresh mode
+    this.$root.$on('tokenRefreshed', () => {
+      this.isRefreshing = false
+    })
   },
 
   beforeDestroy() {
@@ -171,6 +176,7 @@ export default {
         )
 
         if (response.status === 401) {
+          this.isRefreshing = true
           this.handleExpiredToken()
           return
         }
@@ -225,6 +231,10 @@ export default {
     },
 
     handleNowPlaying() {
+      if (this.isRefreshing) {
+        this.playerData.playing = true // keep showing last track
+        return
+      }
       const res = this.playerResponse || {}
 
       // -------------------------------------------------------
