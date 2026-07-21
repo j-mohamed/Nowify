@@ -184,6 +184,9 @@ export default {
         if (!response.ok) throw new Error(`HTTP Error ${response.status}`)
 
         const data = await response.json()
+        // TEMP DEBUG
+        console.log('NOWIFY /nowPlaying response:', JSON.stringify(data))
+
         this.playerResponse = data
         this.handleNowPlaying()
       } catch (error) {
