@@ -1,3 +1,59 @@
+<template>
+  <div id="app">
+    <div class="app-background"></div>
+
+    <!-- PLAYING VIEW -->
+    <div
+      v-if="playerData && playerData.playing"
+      class="now-playing fade-in"
+      :class="getNowPlayingClass()"
+    >
+      <div class="now-playing__cover">
+        <img
+          :src="playerData.trackAlbum?.image || ''"
+          :alt="playerData.trackTitle || ''"
+          class="now-playing__image"
+        />
+      </div>
+
+      <div class="now-playing__details">
+        <h1 class="now-playing__track">{{ playerData.trackTitle }}</h1>
+
+        <h2 class="now-playing__artists">
+          {{
+            playerData.trackArtists ? playerData.trackArtists.join(', ') : ''
+          }}
+        </h2>
+
+        <!-- Progress bar -->
+        <div class="now-playing__progress">
+          <div
+            class="now-playing__progress-fill"
+            :style="{ width: progressPercent + '%' }"
+          ></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- SCREENSAVER VIEW -->
+    <div v-else-if="idle" class="screensaver">
+      <div class="screensaver__bg" :style="circadianGradient"></div>
+
+      <div class="screensaver__clock-container" :style="clockPosition">
+        <div class="screensaver__clock">
+          <div class="screensaver__time">{{ time }}</div>
+          <div class="screensaver__date">{{ date }}</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- IDLE VIEW (Brief transitional state before screensaver) -->
+    <div v-else class="now-playing now-playing--idle">
+      <h1 class="now-playing__idle-heading">No music is playing 😔</h1>
+    </div>
+  </div>
+</template>
+
 <script>
 import props from '@/utils/props.js'
 import * as Vibrant from 'node-vibrant'
@@ -98,7 +154,7 @@ export default {
     },
 
     progressPercent() {
-      if (!this.playerData.duration) return 0
+      if (!this.playerData?.duration) return 0
       return (this.playerData.progress / this.playerData.duration) * 100
     },
 
@@ -153,7 +209,7 @@ export default {
     },
 
     getNowPlayingClass() {
-      const playerClass = this.playerData.playing ? 'active' : 'idle'
+      const playerClass = this.playerData?.playing ? 'active' : 'idle'
       return `now-playing--${playerClass}`
     },
 
@@ -168,7 +224,7 @@ export default {
     },
 
     triggerFade() {
-      const el = this.$el.querySelector('.now-playing')
+      const el = this.$el?.querySelector?.('.now-playing')
       if (!el) return
 
       el.classList.remove('fade-in')
@@ -178,6 +234,7 @@ export default {
 
     handleNowPlaying() {
       const noTrack =
+        !this.playerResponse ||
         !this.playerResponse.item ||
         !this.playerResponse.item.id ||
         !this.playerResponse.item.album ||
@@ -250,7 +307,7 @@ export default {
     },
 
     getAlbumColours() {
-      if (!this.playerData.trackAlbum?.image) return
+      if (!this.playerData?.trackAlbum?.image) return
 
       Vibrant.from(this.playerData.trackAlbum.image)
         .quality(3)
@@ -346,7 +403,6 @@ export default {
      * IDLE TIMER
      * ----------------------------------------------------- */
     startIdleTimer() {
-      // Don't restart the countdown if one is already ticking
       if (this.idleTimer) return
 
       this.idleTimer = setTimeout(() => {
@@ -399,9 +455,12 @@ export default {
   },
 
   watch: {
-    playerData(newVal, oldVal) {
-      if (oldVal && newVal.trackId !== oldVal.trackId) {
-        this.triggerFade()
+    playerData: {
+      deep: true,
+      handler(newVal, oldVal) {
+        if (oldVal && newVal?.trackId !== oldVal?.trackId) {
+          this.triggerFade()
+        }
       }
     },
 
