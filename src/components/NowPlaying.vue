@@ -222,15 +222,11 @@ export default {
 
     handleNowPlaying() {
       const res = this.playerResponse || {}
-      const hasItem =
-        res.item && res.item.id && res.item.album && res.item.artists
-      const hasImages =
-        hasItem && res.item.album.images && res.item.album.images.length > 0
 
-      const isPlayingNow = Boolean(res.is_playing && hasItem && hasImages)
-
-      // NO MUSIC PLAYING -> Immediately show clock screensaver
-      if (!isPlayingNow) {
+      // -------------------------------------------------------
+      // 1. EXPLICIT STOP → show clock immediately
+      // -------------------------------------------------------
+      if (res.is_playing === false) {
         this.playerData = {
           playing: false,
           trackAlbum: {},
@@ -243,27 +239,50 @@ export default {
         return
       }
 
-      // MUSIC IS PLAYING -> Update state
+      // -------------------------------------------------------
+      // 2. PLAYING BUT METADATA IS INCOMPLETE → DO NOT FLIP STATE
+      //    (prevents flicker when Spotify returns partial objects)
+      // -------------------------------------------------------
+      if (res.is_playing === true && (!res.item || !res.item.album)) {
+        // Keep last known track visible
+        this.playerData.playing = true
+        return
+      }
+
+      // -------------------------------------------------------
+      // 3. FULL METADATA AVAILABLE → update track info
+      // -------------------------------------------------------
       const newTrackId = res.item.id
-      const newArtUrl = res.item.album.images[0].url
+      const newArtUrl = res.item.album.images?.[0]?.url || null
       const isNewTrack = this.cachedTrackId !== newTrackId
 
       const bg = document.querySelector('.app-background')
+
+      // Fade background only when track changes
       if (isNewTrack && bg) {
         bg.classList.add('fade')
       }
 
+      // -------------------------------------------------------
+      // 4. SAME TRACK → only update progress/duration
+      // -------------------------------------------------------
       if (this.cachedTrackId === newTrackId) {
         this.playerData.progress = Number(res.progress_ms) || 0
         this.playerData.duration = Number(res.item.duration_ms) || 0
         return
       }
 
+      // -------------------------------------------------------
+      // 5. NEW TRACK → update cached IDs
+      // -------------------------------------------------------
       this.cachedTrackId = newTrackId
 
       const shouldUpdateColours = this.cachedAlbumArtUrl !== newArtUrl
       this.cachedAlbumArtUrl = newArtUrl
 
+      // -------------------------------------------------------
+      // 6. Update full playerData
+      // -------------------------------------------------------
       this.playerData = {
         playing: true,
         trackArtists: res.item.artists.map((a) => a.name),
@@ -277,10 +296,16 @@ export default {
         duration: Number(res.item.duration_ms) || 0
       }
 
+      // -------------------------------------------------------
+      // 7. Update album colours only when art changes
+      // -------------------------------------------------------
       if (shouldUpdateColours) {
         this.$nextTick(() => this.getAlbumColours())
       }
 
+      // -------------------------------------------------------
+      // 8. Remove fade class after animation
+      // -------------------------------------------------------
       if (isNewTrack && bg) {
         setTimeout(() => {
           bg.classList.remove('fade')
