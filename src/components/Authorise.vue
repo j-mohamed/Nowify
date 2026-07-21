@@ -1,5 +1,5 @@
 <template>
-  <div class="authorise">
+  <div class="authorise" v-if="!isRefreshing && !auth.refreshToken">
     <h1 class="authorise__heading">Nowify</h1>
 
     <p class="authorise__copy">
@@ -29,18 +29,17 @@ const currentParams = new URLSearchParams(window.location.search)
 export default {
   name: 'Authorise',
 
-  components: {},
-
   props: {
     auth: props.auth,
     endpoints: props.endpoints
   },
 
   data() {
-    return {}
+    return {
+      isRefreshing: false,
+      refreshTimer: null
+    }
   },
-
-  computed: {},
 
   mounted() {
     // 1. Handle redirect auth code (after Spotify login)
@@ -51,12 +50,8 @@ export default {
       this.requestAccessTokens('refresh_token')
     }
 
-    // 3. Auto-login if no tokens exist
-    if (!this.auth.refreshToken && !this.auth.accessToken) {
-      setTimeout(() => {
-        this.initAuthorise()
-      }, 1500)
-    }
+    // 3. NO AUTO-LOGIN (removed)
+    // Prevents flashing login page on Pi/browser reloads
 
     // 4. Auto-refresh every 55 minutes (Spotify tokens last 60)
     this.refreshTimer = setInterval(
@@ -71,9 +66,7 @@ export default {
 
   methods: {
     /**
-     * Initial Spotify auth, redirects the user to
-     * Spotify to grant app consent, user will
-     * be redirected back to the app.
+     * Manual Spotify login (only triggered by button click)
      */
     initAuthorise() {
       this.setAuthUrl()
@@ -81,30 +74,25 @@ export default {
     },
 
     /**
-     * Check to see if the URL contains an auth code
-     * returned after the user grants consent from Spotify.
+     * Check URL for auth code after Spotify redirect
      */
     getUrlAuthCode() {
       const urlAuthCode = currentParams.get('code')
-
-      if (!urlAuthCode) {
-        return
-      }
-
+      if (!urlAuthCode) return
       this.auth.authCode = urlAuthCode
     },
 
     /**
-     * Request the initial access and refresh tokens from Spotify.
+     * Request access + refresh tokens
      */
     async requestAccessTokens(grantType = 'authorization_code') {
-      let fetchData = {
-        grant_type: grantType
-      }
+      this.isRefreshing = true
+
+      let fetchData = { grant_type: grantType }
 
       if (grantType === 'authorization_code') {
-        ;((fetchData.code = this.auth.authCode),
-          (fetchData.redirect_uri = window.location.origin))
+        fetchData.code = this.auth.authCode
+        fetchData.redirect_uri = window.location.origin
       }
 
       if (grantType === 'refresh_token') {
@@ -112,7 +100,6 @@ export default {
       }
 
       const queryBody = new URLSearchParams(fetchData).toString()
-
       const clientDetails = btoa(
         `${this.auth.clientId}:${this.auth.clientSecret}`
       )
@@ -127,40 +114,30 @@ export default {
       })
 
       const data = await res.json()
-      const accessTokenResponse = data
-
-      this.handleAccessTokenResponse(accessTokenResponse)
+      this.handleAccessTokenResponse(data)
     },
 
     /**
-     * Handle the data returned from Spotify.
-     * @param {Object} accessTokenResponse - response object from fetch.
+     * Handle Spotify token response
      */
     handleAccessTokenResponse(accessTokenResponse = {}) {
-      /**
-       * Auth token expired.
-       */
+      // Retry invalid_grant once
       if (accessTokenResponse.error?.error === 'invalid_grant') {
-        // retry once after 5 seconds
         setTimeout(() => {
           this.requestAccessTokens('refresh_token')
         }, 5000)
         return
       }
 
-      /**
-       * Access Token has expired.
-       */
+      // Access token expired
       if (accessTokenResponse.error?.status === 401) {
         this.auth.authCode = ''
         this.auth.status = false
-
+        this.isRefreshing = false
         return
       }
 
-      /**
-       * Successful.
-       */
+      // Successful token response
       if (accessTokenResponse.access_token) {
         this.auth.accessToken = accessTokenResponse.access_token
 
@@ -169,11 +146,9 @@ export default {
         }
 
         this.auth.status = true
+        this.isRefreshing = false
 
-        /**
-         * There has to be a better way than this.
-         */
-        const param = param != 'undefined' ? param : ''
+        // Clean URL (remove ?code= & ?state=)
         window.history.replaceState(
           null,
           null,
@@ -191,8 +166,7 @@ export default {
     },
 
     /**
-     * Set the initial Spotify authorisation URL
-     * in which the user will be redirected to.
+     * Build Spotify authorization URL
      */
     setAuthUrl() {
       searchParams.toString()
@@ -209,21 +183,19 @@ export default {
         ].join('-')
       )
       searchParams.append('scope', 'user-read-currently-playing')
-
-      return `${this.endpoints.auth}?${searchParams.toString()}`
     }
   },
 
   watch: {
     /**
-     * Watch authorisation code.
+     * When auth code appears, request tokens
      */
     'auth.authCode': function () {
       this.requestAccessTokens()
     },
 
     /**
-     * Watch authorisation status.
+     * When auth status changes, refresh tokens if needed
      */
     'auth.status': function () {
       if (this.auth.refreshToken) {
