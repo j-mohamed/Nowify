@@ -175,9 +175,9 @@ export default {
           return
         }
 
+        // ⭐ FIX: Do NOT flip to clock on 204
         if (response.status === 204) {
-          this.playerResponse = this.getEmptyPlayer()
-          this.handleNowPlaying()
+          // Keep last known playerData
           return
         }
 
@@ -188,6 +188,7 @@ export default {
         this.handleNowPlaying()
       } catch (error) {
         console.warn('Spotify fetch warning:', error)
+        // Also keep last known state on error
       }
     },
 
