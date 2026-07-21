@@ -1,57 +1,3 @@
-<template>
-  <div id="app">
-    <div class="app-background"></div>
-
-    <!-- PLAYING VIEW -->
-    <div
-      v-if="playerData.playing"
-      class="now-playing fade-in"
-      :class="getNowPlayingClass()"
-    >
-      <div class="now-playing__cover">
-        <img
-          :src="playerData.trackAlbum.image"
-          :alt="playerData.trackTitle"
-          class="now-playing__image"
-        />
-      </div>
-
-      <div class="now-playing__details">
-        <h1 class="now-playing__track">{{ playerData.trackTitle }}</h1>
-
-        <h2 class="now-playing__artists">
-          {{ playerData.trackArtists.join(', ') }}
-        </h2>
-
-        <!-- Clean progress bar -->
-        <div class="now-playing__progress">
-          <div
-            class="now-playing__progress-fill"
-            :style="{ width: progressPercent + '%' }"
-          ></div>
-        </div>
-      </div>
-    </div>
-
-    <!-- SCREENSAVER VIEW -->
-    <div v-else-if="idle" class="screensaver">
-      <div class="screensaver__bg" :style="circadianGradient"></div>
-
-      <div class="screensaver__clock-container" :style="clockPosition">
-        <div class="screensaver__clock">
-          <div class="screensaver__time">{{ time }}</div>
-          <div class="screensaver__date">{{ date }}</div>
-        </div>
-      </div>
-    </div>
-
-    <!-- IDLE VIEW -->
-    <div v-else class="now-playing now-playing--idle">
-      <h1 class="now-playing__idle-heading">No music is playing 😔</h1>
-    </div>
-  </div>
-</template>
-
 <script>
 import props from '@/utils/props.js'
 import * as Vibrant from 'node-vibrant'
@@ -105,7 +51,6 @@ export default {
   },
 
   mounted() {
-    // START CLOCK IMMEDIATELY — Do not tie clock execution to idle state
     this.startClock()
     this.setDataInterval()
   },
@@ -247,8 +192,8 @@ export default {
         if (this.idlePollCount >= this.requiredIdlePolls) {
           this.playerData = this.getEmptyPlayer()
 
-          // Start screensaver countdown if not already counting down or active
-          if (!this.idleTimer && !this.idle) {
+          // Start timer only if we aren't already idle and don't have an active timer running
+          if (!this.idle && !this.idleTimer) {
             this.startIdleTimer()
           }
         }
@@ -257,7 +202,7 @@ export default {
 
       // MUSIC IS PLAYING
       this.idlePollCount = 0
-      this.clearIdleTimer() // Immediately dismisses screensaver when music plays
+      this.clearIdleTimer() // Immediately dismiss screensaver when music plays
 
       const newTrackId = this.playerResponse.item.id
       const newArtUrl = this.playerResponse.item.album.images[0].url
@@ -307,7 +252,6 @@ export default {
     getAlbumColours() {
       if (!this.playerData.trackAlbum?.image) return
 
-      // Quality setting 3 minimizes CPU strain on the Raspberry Pi
       Vibrant.from(this.playerData.trackAlbum.image)
         .quality(3)
         .clearFilters()
@@ -392,7 +336,6 @@ export default {
       )
     },
 
-    /* CHANGED: Clean up interval timer completely when token expires */
     handleExpiredToken() {
       clearInterval(this.pollPlaying)
       this.pollPlaying = null
@@ -403,13 +346,12 @@ export default {
      * IDLE TIMER
      * ----------------------------------------------------- */
     startIdleTimer() {
-      if (this.idleTimer) {
-        clearTimeout(this.idleTimer)
-        this.idleTimer = null
-      }
+      // Don't restart the countdown if one is already ticking
+      if (this.idleTimer) return
 
       this.idleTimer = setTimeout(() => {
         this.idle = true
+        this.idleTimer = null
         this.startClockMovement()
       }, 30000)
     },
@@ -456,9 +398,6 @@ export default {
     }
   },
 
-  /* -------------------------------------------------------
-   * WATCHERS
-   * ----------------------------------------------------- */
   watch: {
     playerData(newVal, oldVal) {
       if (oldVal && newVal.trackId !== oldVal.trackId) {
@@ -466,7 +405,6 @@ export default {
       }
     },
 
-    /* CHANGED: The instant the parent sends down a new access token, fetch immediately and resume polling */
     'auth.accessToken': function (newToken) {
       if (newToken) {
         this.setDataInterval()
@@ -476,76 +414,3 @@ export default {
   }
 }
 </script>
-
-<style>
-/* Screensaver container */
-.screensaver {
-  position: relative;
-  height: 100vh;
-  width: 100vw;
-  overflow: hidden;
-}
-
-/* Wave-like circadian gradient */
-@keyframes circadianWave {
-  0% {
-    background-position: 0% 50%;
-  }
-  25% {
-    background-position: 50% 55%;
-  }
-  50% {
-    background-position: 100% 50%;
-  }
-  75% {
-    background-position: 50% 45%;
-  }
-  100% {
-    background-position: 0% 50%;
-  }
-}
-
-.screensaver__bg {
-  position: absolute;
-  inset: 0;
-
-  background: linear-gradient(
-    135deg,
-    var(--circadian-1),
-    color-mix(in srgb, var(--circadian-1) 30%, black),
-    var(--circadian-1)
-  );
-
-  background-size: 300% 300%;
-  animation: circadianWave 22s ease-in-out infinite;
-
-  z-index: 1;
-}
-
-/* Clock movement */
-.screensaver__clock-container {
-  position: absolute;
-  top: 40%;
-  left: 40%;
-  transition: transform 4s ease;
-  z-index: 2;
-}
-
-/* Clock styling */
-.screensaver__clock {
-  text-align: center;
-  color: white;
-  font-family: 'Segoe UI', sans-serif;
-}
-
-.screensaver__time {
-  font-size: 10rem;
-  font-weight: 300;
-}
-
-.screensaver__date {
-  font-size: 3rem;
-  opacity: 0.8;
-  margin-top: 10px;
-}
-</style>
