@@ -10,7 +10,11 @@
     >
       <div class="now-playing__cover">
         <img
-          :src="playerData.trackAlbum?.image || ''"
+          :src="
+            playerData.trackAlbum && playerData.trackAlbum.image
+              ? playerData.trackAlbum.image
+              : ''
+          "
           :alt="playerData.trackTitle || ''"
           class="now-playing__image"
         />
@@ -47,7 +51,7 @@
       </div>
     </div>
 
-    <!-- IDLE VIEW (Brief transitional state before screensaver) -->
+    <!-- IDLE VIEW -->
     <div v-else class="now-playing now-playing--idle">
       <h1 class="now-playing__idle-heading">No music is playing 😔</h1>
     </div>
