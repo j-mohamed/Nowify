@@ -93,7 +93,10 @@ export default {
       // Screensaver movement
       clockX: 0,
       clockY: 0,
-      moveInterval: null
+      moveInterval: null,
+
+      // ⭐ NEW: Prevent clock flicker during token refresh
+      isRefreshing: false
     }
   },
 
@@ -175,29 +178,28 @@ export default {
           }
         )
 
+        // ⭐ 401 → token expired → enter refresh mode
         if (response.status === 401) {
           this.isRefreshing = true
           this.handleExpiredToken()
           return
         }
 
-        // ⭐ FIX: Do NOT flip to clock on 204
+        // ⭐ Do NOT flip to clock on 204
         if (response.status === 204) {
-          // Keep last known playerData
           return
         }
 
         if (!response.ok) throw new Error(`HTTP Error ${response.status}`)
 
         const data = await response.json()
-        // TEMP DEBUG
         console.log('NOWIFY /nowPlaying response:', JSON.stringify(data))
 
         this.playerResponse = data
         this.handleNowPlaying()
       } catch (error) {
         console.warn('Spotify fetch warning:', error)
-        // Also keep last known state on error
+        // Keep last known state on error
       }
     },
 
@@ -231,15 +233,15 @@ export default {
     },
 
     handleNowPlaying() {
+      // ⭐ Ignore all data during token refresh → prevents clock flicker
       if (this.isRefreshing) {
-        this.playerData.playing = true // keep showing last track
+        this.playerData.playing = true
         return
       }
+
       const res = this.playerResponse || {}
 
-      // -------------------------------------------------------
-      // 1. EXPLICIT STOP → show clock immediately
-      // -------------------------------------------------------
+      // 1. Explicit stop → show clock
       if (res.is_playing === false) {
         this.playerData = {
           playing: false,
@@ -253,50 +255,37 @@ export default {
         return
       }
 
-      // -------------------------------------------------------
-      // 2. PLAYING BUT METADATA IS INCOMPLETE → DO NOT FLIP STATE
-      //    (prevents flicker when Spotify returns partial objects)
-      // -------------------------------------------------------
+      // 2. Metadata incomplete → keep last track
       if (res.is_playing === true && (!res.item || !res.item.album)) {
-        // Keep last known track visible
         this.playerData.playing = true
         return
       }
 
-      // -------------------------------------------------------
-      // 3. FULL METADATA AVAILABLE → update track info
-      // -------------------------------------------------------
+      // 3. Full metadata
       const newTrackId = res.item.id
       const newArtUrl = res.item.album.images?.[0]?.url || null
       const isNewTrack = this.cachedTrackId !== newTrackId
 
       const bg = document.querySelector('.app-background')
 
-      // Fade background only when track changes
       if (isNewTrack && bg) {
         bg.classList.add('fade')
       }
 
-      // -------------------------------------------------------
-      // 4. SAME TRACK → only update progress/duration
-      // -------------------------------------------------------
+      // 4. Same track → update progress only
       if (this.cachedTrackId === newTrackId) {
         this.playerData.progress = Number(res.progress_ms) || 0
         this.playerData.duration = Number(res.item.duration_ms) || 0
         return
       }
 
-      // -------------------------------------------------------
-      // 5. NEW TRACK → update cached IDs
-      // -------------------------------------------------------
+      // 5. New track → update cache
       this.cachedTrackId = newTrackId
 
       const shouldUpdateColours = this.cachedAlbumArtUrl !== newArtUrl
       this.cachedAlbumArtUrl = newArtUrl
 
-      // -------------------------------------------------------
       // 6. Update full playerData
-      // -------------------------------------------------------
       this.playerData = {
         playing: true,
         trackArtists: res.item.artists.map((a) => a.name),
@@ -310,16 +299,12 @@ export default {
         duration: Number(res.item.duration_ms) || 0
       }
 
-      // -------------------------------------------------------
-      // 7. Update album colours only when art changes
-      // -------------------------------------------------------
+      // 7. Update colours only when art changes
       if (shouldUpdateColours) {
         this.$nextTick(() => this.getAlbumColours())
       }
 
-      // -------------------------------------------------------
-      // 8. Remove fade class after animation
-      // -------------------------------------------------------
+      // 8. Remove fade class
       if (isNewTrack && bg) {
         setTimeout(() => {
           bg.classList.remove('fade')
