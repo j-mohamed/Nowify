@@ -39,8 +39,8 @@
       </div>
     </div>
 
-    <!-- SCREENSAVER VIEW -->
-    <div v-else-if="idle" class="screensaver">
+    <!-- CLOCK / SCREENSAVER VIEW (Shown anytime music is stopped) -->
+    <div v-else class="screensaver">
       <div class="screensaver__bg" :style="circadianGradient"></div>
 
       <div class="screensaver__clock-container" :style="clockPosition">
@@ -49,11 +49,6 @@
           <div class="screensaver__date">{{ date }}</div>
         </div>
       </div>
-    </div>
-
-    <!-- IDLE VIEW -->
-    <div v-else class="now-playing now-playing--idle">
-      <h1 class="now-playing__idle-heading">No music is playing 😔</h1>
     </div>
   </div>
 </template>
@@ -74,7 +69,7 @@ export default {
   data() {
     return {
       pollPlaying: null,
-      playerResponse: {},
+      playerResponse: null,
       playerData: {
         playing: false,
         trackAlbum: {},
@@ -85,14 +80,6 @@ export default {
 
       colourPalette: '',
       swatches: [],
-
-      // Idle timer state
-      idle: false,
-      idleTimer: null,
-
-      // Debounce fields
-      idlePollCount: 0,
-      requiredIdlePolls: 2,
 
       // Track + album art caching
       cachedTrackId: null,
@@ -112,6 +99,7 @@ export default {
 
   mounted() {
     this.startClock()
+    this.startClockMovement()
     this.setDataInterval()
   },
 
@@ -119,7 +107,6 @@ export default {
     clearInterval(this.pollPlaying)
     clearInterval(this.clockInterval)
     clearInterval(this.moveInterval)
-    this.clearIdleTimer()
   },
 
   computed: {
@@ -158,7 +145,7 @@ export default {
     },
 
     progressPercent() {
-      if (!this.playerData?.duration) return 0
+      if (!this.playerData || !this.playerData.duration) return 0
       return (this.playerData.progress / this.playerData.duration) * 100
     },
 
@@ -171,7 +158,7 @@ export default {
 
   methods: {
     async getNowPlaying() {
-      let data = {}
+      if (!this.auth || !this.auth.accessToken) return
 
       try {
         const response = await fetch(
@@ -188,47 +175,44 @@ export default {
           return
         }
 
-        if (!response.ok) throw new Error(response.status)
-
         if (response.status === 204) {
-          data = this.getEmptyPlayer()
-          this.playerResponse = data
+          this.playerResponse = this.getEmptyPlayer()
           this.handleNowPlaying()
           return
         }
 
-        data = await response.json()
+        if (!response.ok) throw new Error(`HTTP Error ${response.status}`)
+
+        const data = await response.json()
         this.playerResponse = data
         this.handleNowPlaying()
       } catch (error) {
-        console.warn('Spotify fetch error:', error)
+        console.warn('Spotify fetch warning:', error)
       }
     },
 
     setDataInterval() {
-      clearInterval(this.pollPlaying)
+      if (this.pollPlaying) clearInterval(this.pollPlaying)
       this.pollPlaying = setInterval(() => {
         this.getNowPlaying()
       }, 2500)
     },
 
     getNowPlayingClass() {
-      const playerClass = this.playerData?.playing ? 'active' : 'idle'
+      const playerClass =
+        this.playerData && this.playerData.playing ? 'active' : 'idle'
       return `now-playing--${playerClass}`
     },
 
     getEmptyPlayer() {
       return {
-        playing: false,
-        trackAlbum: {},
-        trackArtists: [],
-        trackId: '',
-        trackTitle: ''
+        is_playing: false,
+        item: null
       }
     },
 
     triggerFade() {
-      const el = this.$el?.querySelector?.('.now-playing')
+      const el = this.$el ? this.$el.querySelector('.now-playing') : null
       if (!el) return
 
       el.classList.remove('fade-in')
@@ -237,36 +221,31 @@ export default {
     },
 
     handleNowPlaying() {
-      const noTrack =
-        !this.playerResponse ||
-        !this.playerResponse.item ||
-        !this.playerResponse.item.id ||
-        !this.playerResponse.item.album ||
-        !this.playerResponse.item.artists ||
-        !this.playerResponse.item.album?.images ||
-        this.playerResponse.item.album.images.length === 0
+      const res = this.playerResponse || {}
+      const hasItem =
+        res.item && res.item.id && res.item.album && res.item.artists
+      const hasImages =
+        hasItem && res.item.album.images && res.item.album.images.length > 0
 
-      // MUSIC STOPPED / NOT PLAYING
-      if (!this.playerResponse.is_playing || noTrack) {
-        this.idlePollCount++
+      const isPlayingNow = Boolean(res.is_playing && hasItem && hasImages)
 
-        if (this.idlePollCount >= this.requiredIdlePolls) {
-          this.playerData = this.getEmptyPlayer()
-
-          // Start timer only if we aren't already idle and don't have an active timer running
-          if (!this.idle && !this.idleTimer) {
-            this.startIdleTimer()
-          }
+      // NO MUSIC PLAYING -> Immediately show clock screensaver
+      if (!isPlayingNow) {
+        this.playerData = {
+          playing: false,
+          trackAlbum: {},
+          trackArtists: [],
+          trackId: '',
+          trackTitle: ''
         }
+        this.cachedTrackId = null
+        this.cachedAlbumArtUrl = null
         return
       }
 
-      // MUSIC IS PLAYING
-      this.idlePollCount = 0
-      this.clearIdleTimer() // Immediately dismiss screensaver when music plays
-
-      const newTrackId = this.playerResponse.item.id
-      const newArtUrl = this.playerResponse.item.album.images[0].url
+      // MUSIC IS PLAYING -> Update state
+      const newTrackId = res.item.id
+      const newArtUrl = res.item.album.images[0].url
       const isNewTrack = this.cachedTrackId !== newTrackId
 
       const bg = document.querySelector('.app-background')
@@ -275,9 +254,8 @@ export default {
       }
 
       if (this.cachedTrackId === newTrackId) {
-        this.playerData.progress = Number(this.playerResponse.progress_ms) || 0
-        this.playerData.duration =
-          Number(this.playerResponse.item?.duration_ms) || 0
+        this.playerData.progress = Number(res.progress_ms) || 0
+        this.playerData.duration = Number(res.item.duration_ms) || 0
         return
       }
 
@@ -288,15 +266,15 @@ export default {
 
       this.playerData = {
         playing: true,
-        trackArtists: this.playerResponse.item.artists.map((a) => a.name),
-        trackTitle: this.playerResponse.item.name,
+        trackArtists: res.item.artists.map((a) => a.name),
+        trackTitle: res.item.name,
         trackId: newTrackId,
         trackAlbum: {
-          title: this.playerResponse.item.album.name,
+          title: res.item.album.name,
           image: newArtUrl
         },
-        progress: Number(this.playerResponse.progress_ms) || 0,
-        duration: Number(this.playerResponse.item?.duration_ms) || 0
+        progress: Number(res.progress_ms) || 0,
+        duration: Number(res.item.duration_ms) || 0
       }
 
       if (shouldUpdateColours) {
@@ -311,7 +289,12 @@ export default {
     },
 
     getAlbumColours() {
-      if (!this.playerData?.trackAlbum?.image) return
+      if (
+        !this.playerData ||
+        !this.playerData.trackAlbum ||
+        !this.playerData.trackAlbum.image
+      )
+        return
 
       Vibrant.from(this.playerData.trackAlbum.image)
         .quality(3)
@@ -336,8 +319,8 @@ export default {
           bg.classList.add('fade')
 
           const base =
-            palette.Vibrant?.hex ||
-            palette.LightVibrant?.hex ||
+            (palette.Vibrant && palette.Vibrant.hex) ||
+            (palette.LightVibrant && palette.LightVibrant.hex) ||
             this.colourPalette.background
 
           const contrast = this.adjustBrightness(base, 120)
@@ -398,37 +381,19 @@ export default {
     },
 
     handleExpiredToken() {
-      clearInterval(this.pollPlaying)
-      this.pollPlaying = null
+      if (this.pollPlaying) {
+        clearInterval(this.pollPlaying)
+        this.pollPlaying = null
+      }
       this.$emit('requestRefreshToken')
     },
 
     /* -------------------------------------------------------
-     * IDLE TIMER
+     * CLOCK & SCREENSAVER MOVEMENT
      * ----------------------------------------------------- */
-    startIdleTimer() {
-      if (this.idleTimer) return
-
-      this.idleTimer = setTimeout(() => {
-        this.idle = true
-        this.idleTimer = null
-        this.startClockMovement()
-      }, 30000)
-    },
-
-    clearIdleTimer() {
-      if (this.idleTimer) {
-        clearTimeout(this.idleTimer)
-        this.idleTimer = null
-      }
-
-      this.idle = false
-      clearInterval(this.moveInterval)
-    },
-
     startClock() {
       this.updateClock()
-      clearInterval(this.clockInterval)
+      if (this.clockInterval) clearInterval(this.clockInterval)
       this.clockInterval = setInterval(() => {
         this.updateClock()
       }, 1000)
@@ -450,7 +415,7 @@ export default {
     },
 
     startClockMovement() {
-      clearInterval(this.moveInterval)
+      if (this.moveInterval) clearInterval(this.moveInterval)
       this.moveInterval = setInterval(() => {
         this.clockX = Math.random() * 300 - 150
         this.clockY = Math.random() * 300 - 150
@@ -459,12 +424,9 @@ export default {
   },
 
   watch: {
-    playerData: {
-      deep: true,
-      handler(newVal, oldVal) {
-        if (oldVal && newVal?.trackId !== oldVal?.trackId) {
-          this.triggerFade()
-        }
+    'playerData.trackId': function (newTrackId, oldTrackId) {
+      if (oldTrackId && newTrackId && newTrackId !== oldTrackId) {
+        this.triggerFade()
       }
     },
 
@@ -477,3 +439,76 @@ export default {
   }
 }
 </script>
+
+<style>
+/* Screensaver container */
+.screensaver {
+  position: relative;
+  height: 100vh;
+  width: 100vw;
+  overflow: hidden;
+}
+
+/* Wave-like circadian gradient */
+@keyframes circadianWave {
+  0% {
+    background-position: 0% 50%;
+  }
+  25% {
+    background-position: 50% 55%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  75% {
+    background-position: 50% 45%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+.screensaver__bg {
+  position: absolute;
+  inset: 0;
+
+  background: linear-gradient(
+    135deg,
+    var(--circadian-1),
+    color-mix(in srgb, var(--circadian-1) 30%, black),
+    var(--circadian-1)
+  );
+
+  background-size: 300% 300%;
+  animation: circadianWave 22s ease-in-out infinite;
+
+  z-index: 1;
+}
+
+/* Clock movement */
+.screensaver__clock-container {
+  position: absolute;
+  top: 40%;
+  left: 40%;
+  transition: transform 4s ease;
+  z-index: 2;
+}
+
+/* Clock styling */
+.screensaver__clock {
+  text-align: center;
+  color: white;
+  font-family: 'Segoe UI', sans-serif;
+}
+
+.screensaver__time {
+  font-size: 10rem;
+  font-weight: 300;
+}
+
+.screensaver__date {
+  font-size: 3rem;
+  opacity: 0.8;
+  margin-top: 10px;
+}
+</style>
