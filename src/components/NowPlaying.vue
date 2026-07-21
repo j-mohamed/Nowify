@@ -233,7 +233,7 @@ export default {
     },
 
     handleNowPlaying() {
-      // ⭐ Ignore all data during token refresh → prevents clock flicker
+      // ⭐ Ignore all data during token refresh
       if (this.isRefreshing) {
         this.playerData.playing = true
         return
@@ -241,7 +241,13 @@ export default {
 
       const res = this.playerResponse || {}
 
-      // 1. Explicit stop → show clock
+      // ⭐ NEW: Guard against empty / undefined responses
+      if (!res || !res.item) {
+        this.playerData.playing = true
+        return
+      }
+
+      // Explicit stop → show clock
       if (res.is_playing === false) {
         this.playerData = {
           playing: false,
@@ -255,7 +261,7 @@ export default {
         return
       }
 
-      // 2. Metadata incomplete → keep last track
+      // Playing but metadata incomplete → keep last track
       if (res.is_playing === true && (!res.item || !res.item.album)) {
         this.playerData.playing = true
         return
