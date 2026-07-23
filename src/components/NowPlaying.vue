@@ -268,11 +268,24 @@ export default {
       }
 
       // 3. Full metadata
-      const newTrackId = res.item.id
-      const newArtUrl = res.item.album.images?.[0]?.url || null
-      const isNewTrack = this.cachedTrackId !== newTrackId
+	const newTrackId = res.item.id
 
-      const bg = document.querySelector('.app-background')
+	let newArtUrl = null
+	if (
+  res &&
+  res.item &&
+  res.item.album &&
+  res.item.album.images &&
+  res.item.album.images[0] &&
+  res.item.album.images[0].url
+) {
+  newArtUrl = res.item.album.images[0].url
+}
+
+const isNewTrack = this.cachedTrackId !== newTrackId
+
+const bg = document.querySelector('.app-background')
+
 
       if (isNewTrack && bg) {
         bg.classList.add('fade')
